@@ -1,12 +1,20 @@
-import { EndpointGroup, TestResult } from '@/types';
+import { EndpointGroup, TestResult, AuthConfig } from '@/types';
 
 export function generateYAMLConfig(
   swaggerUrl: string,
   baseUrl: string,
-  auth: { type: string; token?: string },
+  auth: AuthConfig,
   endpointGroups: EndpointGroup[]
 ): string {
   
+  const authSection = auth?.type === 'oauth2'
+    ? `    type: "oauth2"
+    token_url: "${auth.tokenUrl || ''}"
+    username: "***"  # Credentials redacted for security
+    password: "***"  # Credentials redacted for security`
+    : `    type: "${auth?.type || 'none'}"
+    ${auth?.token ? 'token: "***"  # Token redacted for security' : '# No token required'}`;
+
   const yaml = `# API Regression Test Configuration
 # Generated: ${new Date().toISOString()}
 
@@ -14,8 +22,7 @@ config:
   swagger_url: "${swaggerUrl}"
   base_url: "${baseUrl}"
   auth:
-    type: "${auth?.type || 'none'}"
-    ${auth?.token ? 'token: "***"  # Token redacted for security' : '# No token required'}
+${authSection}
 
 endpoints:
 ${endpointGroups.map(group => `  - resource: "${group.resource}"

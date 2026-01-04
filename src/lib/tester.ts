@@ -1,16 +1,42 @@
 import axios, { AxiosRequestConfig } from 'axios';
-import { TestStep, TestResult, EndpointGroup } from '@/types';
+import { TestStep, TestResult, EndpointGroup, AuthConfig } from '@/types';
 import { deepCompare, stripMetaFields } from './comparator';
+
+async function getOAuth2Token(
+  tokenUrl: string,
+  username: string,
+  password: string
+): Promise<string> {
+  const response = await axios.post(tokenUrl, 
+    new URLSearchParams({
+      grant_type: 'password',
+      username,
+      password,
+    }),
+    {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }
+  );
+  
+  return response.data.access_token;
+}
 
 export async function runEndpointTest(
   baseUrl: string,
   group: EndpointGroup,
-  auth?: { type: string; token?: string },
+  auth?: AuthConfig,
   onStepComplete?: (step: TestStep) => void
 ): Promise<TestResult> {
   
   const steps: TestStep[] = [];
   const startTime = Date.now();
+  
+  const addStep = (step: TestStep) => {
+    steps.push(step);
+    onStepComplete?.(step);
+  };
   
   // Build auth headers
   const headers: Record<string, string> = {
@@ -18,7 +44,38 @@ export async function runEndpointTest(
     'Accept': 'application/json',
   };
   
-  if (auth?.type === 'bearer' && auth.token) {
+  // Handle OAuth2 authentication
+  if (auth?.type === 'oauth2' && auth.username && auth.password && auth.tokenUrl) {
+    try {
+      const token = await getOAuth2Token(auth.tokenUrl, auth.username, auth.password);
+      headers['Authorization'] = `Bearer ${token}`;
+      
+      addStep({
+        step: 'AUTH',
+        method: 'POST',
+        url: auth.tokenUrl,
+        status: 200,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      addStep({
+        step: 'AUTH',
+        method: 'POST',
+        url: auth.tokenUrl,
+        status: error.response?.status || 0,
+        error: `OAuth2 authentication failed: ${error.message}`,
+        timestamp: new Date(),
+      });
+      
+      return {
+        resource: group.resource,
+        steps,
+        passed: false,
+        differences: [{ path: 'auth', expected: 'success', actual: 'failed', type: 'changed' }],
+        duration: Date.now() - startTime,
+      };
+    }
+  } else if (auth?.type === 'bearer' && auth.token) {
     headers['Authorization'] = `Bearer ${auth.token}`;
   } else if (auth?.type === 'apikey' && auth.token) {
     headers['X-API-Key'] = auth.token;
@@ -37,11 +94,6 @@ export async function runEndpointTest(
     let getResponse: any;
     let resourceId = '1';
     let originalData: any = null;
-    
-    const addStep = (step: TestStep) => {
-      steps.push(step);
-      onStepComplete?.(step);
-    };
     
     // Try GET with ID
     if (getEndpoint) {

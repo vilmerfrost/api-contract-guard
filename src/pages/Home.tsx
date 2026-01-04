@@ -14,7 +14,13 @@ interface HomeProps {
   onConfigUpdate: (config: {
     swaggerUrl: string;
     baseUrl: string;
-    auth: { type: 'none' | 'bearer' | 'apikey'; token?: string };
+    auth: { 
+      type: 'none' | 'bearer' | 'apikey' | 'oauth2'; 
+      token?: string;
+      username?: string;
+      password?: string;
+      tokenUrl?: string;
+    };
     endpointGroups: any[];
   }) => void;
 }
@@ -24,8 +30,11 @@ export default function Home({ onConfigUpdate }: HomeProps) {
   const { toast } = useToast();
   
   const [swaggerUrl, setSwaggerUrl] = useState('https://petstore.swagger.io/v2/swagger.json');
-  const [authType, setAuthType] = useState<'none' | 'bearer' | 'apikey'>('none');
+  const [authType, setAuthType] = useState<'none' | 'bearer' | 'apikey' | 'oauth2'>('none');
   const [token, setToken] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [tokenUrl, setTokenUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleParse = async () => {
@@ -55,7 +64,13 @@ export default function Home({ onConfigUpdate }: HomeProps) {
       onConfigUpdate({
         swaggerUrl,
         baseUrl,
-        auth: { type: authType, token: token || undefined },
+        auth: { 
+          type: authType, 
+          token: token || undefined,
+          username: username || undefined,
+          password: password || undefined,
+          tokenUrl: tokenUrl || undefined,
+        },
         endpointGroups: groups,
       });
 
@@ -95,7 +110,7 @@ export default function Home({ onConfigUpdate }: HomeProps) {
     {
       icon: Shield,
       title: 'Auth Support',
-      description: 'Bearer tokens and API keys',
+      description: 'OAuth2, Bearer tokens, and API keys',
     },
   ];
 
@@ -165,13 +180,61 @@ export default function Home({ onConfigUpdate }: HomeProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No Authentication</SelectItem>
+                      <SelectItem value="oauth2">OAuth2 Username/Password</SelectItem>
                       <SelectItem value="bearer">Bearer Token</SelectItem>
                       <SelectItem value="apikey">API Key</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {authType !== 'none' && (
+                {authType === 'oauth2' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="md:col-span-2 space-y-4"
+                  >
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="token-url">Token Endpoint URL</Label>
+                        <Input
+                          id="token-url"
+                          type="url"
+                          placeholder="https://api.example.com/oauth/token"
+                          value={tokenUrl}
+                          onChange={(e) => setTokenUrl(e.target.value)}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="username">Username</Label>
+                        <Input
+                          id="username"
+                          type="text"
+                          placeholder="Enter username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="Enter password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      OAuth2 password grant flow. Credentials are never logged or exported.
+                    </p>
+                  </motion.div>
+                )}
+
+                {(authType === 'bearer' || authType === 'apikey') && (
                   <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}

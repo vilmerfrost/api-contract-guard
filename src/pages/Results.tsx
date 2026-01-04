@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResultsTimeline } from '@/components/ResultsTimeline';
 import { DiffViewer } from '@/components/DiffViewer';
-import { EndpointGroup, TestResult, TestStep } from '@/types';
+import { EndpointGroup, TestResult, TestStep, AuthConfig } from '@/types';
 import { runEndpointTest } from '@/lib/tester';
 import { generateTestResultsJSON, downloadFile } from '@/lib/exporter';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +15,7 @@ import { motion } from 'framer-motion';
 
 interface ResultsProps {
   baseUrl: string;
-  auth: { type: 'none' | 'bearer' | 'apikey'; token?: string };
+  auth: AuthConfig;
   endpointGroups: EndpointGroup[];
   testResults: Map<string, TestResult>;
   onTestComplete: (resource: string, result: TestResult) => void;

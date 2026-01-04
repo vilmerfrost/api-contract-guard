@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EndpointCard } from '@/components/EndpointCard';
-import { EndpointGroup, TestResult } from '@/types';
+import { EndpointGroup, TestResult, AuthConfig } from '@/types';
 import { runEndpointTest } from '@/lib/tester';
 import { generateYAMLConfig, downloadFile } from '@/lib/exporter';
 import { useToast } from '@/hooks/use-toast';
@@ -13,7 +13,7 @@ import { motion } from 'framer-motion';
 interface EndpointsProps {
   swaggerUrl: string;
   baseUrl: string;
-  auth: { type: 'none' | 'bearer' | 'apikey'; token?: string };
+  auth: AuthConfig;
   endpointGroups: EndpointGroup[];
   onTestComplete: (resource: string, result: TestResult) => void;
   testResults: Map<string, TestResult>;

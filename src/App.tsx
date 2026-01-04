@@ -8,7 +8,7 @@ import Home from "./pages/Home";
 import Endpoints from "./pages/Endpoints";
 import Results from "./pages/Results";
 import NotFound from "./pages/NotFound";
-import { EndpointGroup, TestResult } from "./types";
+import { EndpointGroup, TestResult, AuthConfig } from "./types";
 
 const queryClient = new QueryClient();
 
@@ -16,7 +16,7 @@ const App = () => {
   const [config, setConfig] = useState<{
     swaggerUrl: string;
     baseUrl: string;
-    auth: { type: 'none' | 'bearer' | 'apikey'; token?: string };
+    auth: AuthConfig;
     endpointGroups: EndpointGroup[];
   }>({
     swaggerUrl: '',
