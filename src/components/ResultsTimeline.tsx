@@ -28,6 +28,8 @@ export function ResultsTimeline({ steps, isRunning }: ResultsTimelineProps) {
 
   const getStepLabel = (step: TestStep) => {
     switch (step.step) {
+      case 'AUTH':
+        return 'Authenticate';
       case 'GET':
         return 'Fetch Original';
       case 'DELETE':

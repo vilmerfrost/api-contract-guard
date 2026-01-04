@@ -1,9 +1,14 @@
 export interface SwaggerConfig {
   url: string;
-  auth?: {
-    type: 'none' | 'bearer' | 'apikey';
-    token?: string;
-  };
+  auth?: AuthConfig;
+}
+
+export interface AuthConfig {
+  type: 'none' | 'bearer' | 'apikey' | 'oauth2';
+  token?: string;
+  username?: string;
+  password?: string;
+  tokenUrl?: string;
 }
 
 export interface Endpoint {
@@ -22,7 +27,7 @@ export interface EndpointGroup {
 }
 
 export interface TestStep {
-  step: 'GET' | 'DELETE' | 'POST' | 'VERIFY' | 'COMPARE';
+  step: 'AUTH' | 'GET' | 'DELETE' | 'POST' | 'VERIFY' | 'COMPARE';
   method?: string;
   url?: string;
   status?: number;
@@ -49,10 +54,7 @@ export interface Difference {
 export interface AppState {
   swaggerUrl: string;
   baseUrl: string;
-  auth: {
-    type: 'none' | 'bearer' | 'apikey';
-    token?: string;
-  };
+  auth: AuthConfig;
   endpointGroups: EndpointGroup[];
   testResults: Map<string, TestResult>;
 }
