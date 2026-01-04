@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Test results
+test-results/
+junit.xml
+*.junit.xml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

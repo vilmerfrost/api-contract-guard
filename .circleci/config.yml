@@ -1,0 +1,93 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@5.1.0
+
+jobs:
+  regression-tests:
+    docker:
+      - image: cimg/node:18.0
+    
+    resource_class: medium
+    
+    steps:
+      - checkout
+      
+      # Install dependencies
+      - node/install-packages:
+          pkg-manager: npm
+      
+      # Build CLI
+      - run:
+          name: Build CLI
+          command: npm run build:cli
+      
+      # Ensure VM is running
+      - run:
+          name: Ensure Azure VM Running
+          command: |
+            node dist/cli/cli.js vm-start \
+              --api-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json \
+              --max-wait 300
+          no_output_timeout: 10m
+      
+      # Run API regression tests
+      - run:
+          name: Run API Regression Tests
+          command: |
+            node dist/cli/cli.js test \
+              --swagger-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json \
+              --token-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/token \
+              --username $API_USERNAME \
+              --password $API_PASSWORD \
+              --output test-results/junit.xml
+          no_output_timeout: 30m
+      
+      # Store test results
+      - store_test_results:
+          path: test-results
+      
+      # Store artifacts (JUnit XML)
+      - store_artifacts:
+          path: test-results/
+          destination: regression-results
+
+workflows:
+  version: 2
+  
+  # Run on pull requests
+  pr-checks:
+    jobs:
+      - regression-tests:
+          context: api-credentials
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+  
+  # Run on merge to main
+  merge-checks:
+    jobs:
+      - regression-tests:
+          context: api-credentials
+          filters:
+            branches:
+              only:
+                - main
+                - master
+  
+  # Optional: Scheduled nightly regression
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 2 * * *"  # 2 AM UTC daily
+          filters:
+            branches:
+              only:
+                - main
+                - master
+    jobs:
+      - regression-tests:
+          context: api-credentials
+

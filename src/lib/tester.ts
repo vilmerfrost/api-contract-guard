@@ -1,34 +1,52 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import { AxiosRequestConfig } from 'axios';
 import { TestStep, TestResult, EndpointGroup, AuthConfig } from '@/types';
-import { deepCompare, stripMetaFields } from './comparator';
+import { deepCompare, stripMetaFields } from './comparator.js';
+import { createAxiosInstance } from './utils.js';
+
+const axios = createAxiosInstance();
 
 async function getOAuth2Token(
   tokenUrl: string,
   username: string,
   password: string
 ): Promise<string> {
-  const response = await axios.post(tokenUrl, 
-    new URLSearchParams({
-      grant_type: 'password',
-      username,
-      password,
-    }),
-    {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    }
-  );
-  
-  return response.data.access_token;
+  try {
+    // Use form-encoded data (not JSON) - required for OAuth2 password grant
+    const response = await axios.post(tokenUrl, 
+      new URLSearchParams({
+        grant_type: 'password',
+        username,
+        password,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        // Use SSL-handled axios instance (already configured)
+      }
+    );
+    
+    return response.data.access_token;
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error_description 
+      || error.response?.data?.error 
+      || error.message;
+    throw new Error(`OAuth2 authentication failed: ${errorMsg}`);
+  }
+}
+
+export interface TestOptions {
+  mode?: 'full' | 'readonly';
 }
 
 export async function runEndpointTest(
   baseUrl: string,
   group: EndpointGroup,
   auth?: AuthConfig,
-  onStepComplete?: (step: TestStep) => void
+  onStepComplete?: (step: TestStep) => void,
+  options?: TestOptions
 ): Promise<TestResult> {
+  const mode = options?.mode || 'full';
   
   const steps: TestStep[] = [];
   const startTime = Date.now();
@@ -95,6 +113,72 @@ export async function runEndpointTest(
     let resourceId = '1';
     let originalData: any = null;
     
+    // If readonly mode, just test GET and return
+    if (mode === 'readonly') {
+      const testEndpoint = getEndpoint || getListEndpoint;
+      
+      if (!testEndpoint) {
+        addStep({
+          step: 'GET',
+          method: 'GET',
+          url: group.resource,
+          error: 'No GET endpoint available',
+          timestamp: new Date(),
+        });
+        
+        return {
+          resource: group.resource,
+          steps,
+          passed: false,
+          differences: [{ path: 'error', expected: 'GET endpoint', actual: 'none', type: 'changed' }],
+          duration: Date.now() - startTime,
+        };
+      }
+      
+      const testPath = testEndpoint.path.replace(/\{[^}]+\}/g, '1');
+      
+      try {
+        const response = await axios.get(`${baseUrl}${testPath}`, config);
+        
+        addStep({
+          step: 'GET',
+          method: 'GET',
+          url: testPath,
+          status: response.status,
+          data: response.data,
+          timestamp: new Date(),
+        });
+        
+        const passed = response.status === 200;
+        
+        return {
+          resource: group.resource,
+          steps,
+          passed,
+          differences: passed ? [] : [{ path: 'status', expected: 200, actual: response.status, type: 'changed' }],
+          duration: Date.now() - startTime,
+        };
+      } catch (error: any) {
+        addStep({
+          step: 'GET',
+          method: 'GET',
+          url: testPath,
+          status: error.response?.status || 0,
+          error: error.message,
+          timestamp: new Date(),
+        });
+        
+        return {
+          resource: group.resource,
+          steps,
+          passed: false,
+          differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
+          duration: Date.now() - startTime,
+        };
+      }
+    }
+    
+    // Full CRUD mode continues below...
     // Try GET with ID
     if (getEndpoint) {
       const getPath = getEndpoint.path.replace(/\{[^}]+\}/g, resourceId);

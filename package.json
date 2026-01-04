@@ -1,12 +1,19 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "api-contract-guard",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "bin": {
+    "api-contract-guard": "./dist/cli/cli.js"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "build:cli": "tsc -p tsconfig.cli.json && chmod +x dist/cli/cli.js",
+    "cli": "tsx src/cli/cli.ts",
+    "test:api": "npm run build:cli && node dist/cli/cli.js test",
+    "test:azure-auth": "tsx test-azure-auth.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -45,7 +52,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "commander": "^14.0.2",
     "date-fns": "^3.6.0",
+    "deep-diff": "^1.0.2",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.26",
     "input-otp": "^1.4.2",
@@ -62,13 +71,15 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "ts-node": "^10.9.2",
     "vaul": "^0.9.9",
+    "yaml": "^2.8.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
-    "@types/node": "^22.16.5",
+    "@types/node": "^22.19.3",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
@@ -80,8 +91,22 @@
     "lovable-tagger": "^1.1.13",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19"
-  }
+  },
+  "description": "## Project info",
+  "main": "eslint.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vilmerfrost/api-contract-guard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vilmerfrost/api-contract-guard/issues"
+  },
+  "homepage": "https://github.com/vilmerfrost/api-contract-guard#readme"
 }

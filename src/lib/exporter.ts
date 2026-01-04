@@ -86,6 +86,11 @@ export function generateTestResultsJSON(results: TestResult[]): string {
 }
 
 export function downloadFile(content: string, filename: string, mimeType: string = 'text/plain') {
+  // Only works in browser environments
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    throw new Error('downloadFile is only available in browser environments');
+  }
+  
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

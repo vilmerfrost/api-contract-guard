@@ -1,0 +1,48 @@
+image: node:18
+
+pipelines:
+  default:
+    - step:
+        name: Build and Test
+        caches:
+          - node
+        script:
+          - npm ci
+          - npm run build:cli
+          - node dist/cli/cli.js vm-start --api-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json
+          - node dist/cli/cli.js test --swagger-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json --token-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/token --username $API_USERNAME --password $API_PASSWORD --output test-results/junit.xml
+        artifacts:
+          - test-results/**
+
+  branches:
+    main:
+      - step:
+          name: Regression Tests
+          caches:
+            - node
+          script:
+            - npm ci
+            - npm run build:cli
+            - node dist/cli/cli.js vm-start --api-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json
+            - node dist/cli/cli.js test --swagger-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json --token-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/token --username $API_USERNAME --password $API_PASSWORD --output test-results/junit.xml
+          artifacts:
+            - test-results/**
+
+  pull-requests:
+    '**':
+      - step:
+          name: PR Regression Tests
+          caches:
+            - node
+          script:
+            - npm ci
+            - npm run build:cli
+            - node dist/cli/cli.js vm-start --api-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json
+            - node dist/cli/cli.js test --swagger-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json --token-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/token --username $API_USERNAME --password $API_PASSWORD --output test-results/junit.xml
+          artifacts:
+            - test-results/**
+
+definitions:
+  caches:
+    node: node_modules
+

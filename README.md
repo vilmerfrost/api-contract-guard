@@ -1,73 +1,262 @@
-# Welcome to your Lovable project
+# API Contract Guard
 
-## Project info
+Automated API Contract Regression Testing with Azure VM auto-start and CI/CD integration.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Overview
 
-## How can I edit this code?
+API Contract Guard is a dual-purpose tool that provides both a web UI and a CLI for automated API contract testing. It performs full CRUD regression tests against OpenAPI/Swagger specifications to ensure your API contracts remain stable across deployments.
 
-There are several ways of editing your application.
+**Key Features:**
+- 🌐 Modern web UI for manual testing and exploration
+- 🖥️ CLI tool for automated CI/CD integration
+- 🚀 Automatic Azure VM startup for dev environments
+- 🔐 OAuth2 authentication with token caching
+- 📋 Endpoint blacklist filtering
+- 📊 JUnit XML report generation
+- 🔄 Full CRUD flow testing (GET → DELETE → POST → GET → COMPARE)
+- ⚡ Parallel test execution support
 
-**Use Lovable**
+## Installation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### For Web UI Development
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The web UI will be available at `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### For CLI Usage
 
-**Use GitHub Codespaces**
+```bash
+# Build the CLI
+npm run build:cli
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Run locally
+npm run cli -- test --swagger-url <url> --token-url <url> --username <user> --password <pass>
 
-## What technologies are used for this project?
+# Install globally (optional)
+npm install -g .
+api-contract-guard test --swagger-url <url> ...
+```
 
-This project is built with:
+## CLI Usage
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Run Regression Tests
 
-## How can I deploy this project?
+```bash
+api-contract-guard test \
+  --swagger-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json \
+  --token-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/token \
+  --username $API_USERNAME \
+  --password $API_PASSWORD \
+  --output junit.xml
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+**Options:**
+- `--swagger-url <url>` - OpenAPI/Swagger JSON URL (required)
+- `--token-url <url>` - OAuth2 token endpoint (required)
+- `--username <user>` - OAuth2 username (required, or use `API_USERNAME` env var)
+- `--password <pass>` - OAuth2 password (required, or use `API_PASSWORD` env var)
+- `--output <file>` - JUnit XML output file path (default: `junit.xml`)
+- `--auto-start-vm` - Automatically start Azure VM if API is down (default: true)
+- `--no-auto-start-vm` - Disable automatic VM start
+- `--parallel` - Run tests in parallel (default: false)
+- `--max-parallel <n>` - Maximum concurrent tests (default: 5)
+- `--mode <mode>` - Test mode: `full` (CRUD) or `readonly` (GET only) (default: `full`)
 
-## Can I connect a custom domain to my Lovable project?
+### Start Azure VM Manually
 
-Yes, you can!
+```bash
+api-contract-guard vm-start \
+  --api-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json \
+  --max-wait 300
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### List Endpoints
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```bash
+api-contract-guard list-endpoints \
+  --swagger-url https://pdq.swedencentral.cloudapp.azure.com/dev/app/openapi.json
+```
+
+**Options:**
+- `--include-blacklisted` - Include blacklisted endpoints in output
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      API Contract Guard                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌─────────────┐              ┌─────────────────┐           │
+│  │  Web UI     │              │  CLI Tool       │           │
+│  │  (React)    │              │  (Commander)    │           │
+│  └──────┬──────┘              └────────┬────────┘           │
+│         │                              │                     │
+│         └──────────┬───────────────────┘                     │
+│                    │                                         │
+│         ┌──────────▼───────────┐                            │
+│         │   Shared Core Logic  │                            │
+│         ├──────────────────────┤                            │
+│         │ • Swagger Parser     │                            │
+│         │ • Deep Comparator    │                            │
+│         │ • CRUD Test Runner   │                            │
+│         │ • OAuth2 Manager     │                            │
+│         └──────────────────────┘                            │
+│                                                               │
+│  CLI-Specific Components:                                    │
+│  ┌──────────────┬──────────────┬─────────────┬───────────┐ │
+│  │ Orchestrator │  Blacklist   │  Azure VM   │  JUnit    │ │
+│  │              │  Filter      │  Starter    │  Reporter │ │
+│  └──────────────┴──────────────┴─────────────┴───────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## How It Works
+
+### Full CRUD Test Flow
+
+For each endpoint group (resource):
+
+1. **GET** - Fetch existing resource data
+2. **DELETE** - Remove the resource
+3. **POST** - Recreate the resource with the same data (minus metadata fields)
+4. **VERIFY** - Fetch the newly created resource
+5. **COMPARE** - Deep compare original vs recreated (ignoring id, timestamps, etc.)
+
+### Endpoint Blacklist
+
+37 endpoints are excluded from testing due to side effects or operational concerns:
+- Ingestion endpoints
+- Schedule control endpoints
+- Data lineage endpoints
+- QPI/audit endpoints
+- See `src/cli/blacklist.ts` for full list
+
+### Azure VM Auto-Start
+
+The CLI can automatically start the Azure development VM if the API is not accessible:
+1. Check if API responds
+2. If not, authenticate with Azure Management API
+3. Send VM start command
+4. Poll API until ready (max 5 minutes)
+
+## CI/CD Integration
+
+### CircleCI
+
+Configuration provided in `.circleci/config.yml`
+
+**Workflows:**
+- `pr-checks` - Run on pull requests
+- `merge-checks` - Run on merge to main
+- `nightly` - Scheduled daily at 2 AM UTC
+
+**Required Context Variables:**
+- `API_USERNAME` - OAuth2 username
+- `API_PASSWORD` - OAuth2 password
+
+### Bitbucket Pipelines
+
+Configuration provided in `bitbucket-pipelines.yml`
+
+**Pipelines:**
+- Default pipeline for all branches
+- Main branch specific pipeline
+- Pull request pipeline
+
+**Required Repository Variables:**
+- `API_USERNAME` - OAuth2 username
+- `API_PASSWORD` - OAuth2 password
+
+## Environment Variables
+
+For local development and CI/CD:
+
+```bash
+# Required for authentication
+export API_USERNAME="your-username"
+export API_PASSWORD="your-password"
+
+# Optional: Enable debug output
+export DEBUG=1
+```
+
+## Development
+
+### Project Structure
+
+```
+src/
+├── cli/                      # CLI-specific code
+│   ├── cli.ts               # Entry point with commands
+│   ├── orchestrator.ts      # Test execution coordinator
+│   ├── blacklist.ts         # Endpoint exclusion list
+│   ├── azure-starter.ts     # VM auto-start logic
+│   └── junit-reporter.ts    # XML report generator
+├── lib/                     # Shared core logic
+│   ├── swagger.ts           # OpenAPI parser
+│   ├── comparator.ts        # Deep diff engine
+│   ├── tester.ts            # CRUD test runner
+│   └── ...
+├── components/              # React UI components
+├── pages/                   # React pages
+└── types/                   # TypeScript definitions
+```
+
+### Build Commands
+
+```bash
+# Build web UI
+npm run build
+
+# Build CLI tool
+npm run build:cli
+
+# Development (web UI)
+npm run dev
+
+# Run CLI in development
+npm run cli -- <command> [options]
+```
+
+## Testing Checklist
+
+Before deploying:
+
+- [ ] VM auto-starts when API is unreachable
+- [ ] OAuth2 token acquired and cached properly
+- [ ] All 37 blacklisted endpoints are skipped
+- [ ] Full CRUD flow executes correctly
+- [ ] Read-only mode (GET-only) works
+- [ ] JUnit XML validates and contains correct data
+- [ ] CLI exits with code 1 on test failure, 0 on success
+- [ ] CircleCI config syntax is valid
+- [ ] Environment variables work in CI context
+
+## Technology Stack
+
+- **Runtime:** Node.js 18+
+- **Language:** TypeScript
+- **Web Framework:** React + Vite
+- **UI Components:** shadcn/ui + Radix UI
+- **Styling:** Tailwind CSS
+- **CLI Framework:** Commander.js
+- **HTTP Client:** Axios
+- **Testing:** Custom CRUD test engine
+- **CI/CD:** CircleCI, Bitbucket Pipelines
+
+## License
+
+ISC
+
+## Author
+
+Vilmer Frost
+
+## Repository
+
+https://github.com/vilmerfrost/api-contract-guard

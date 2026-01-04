@@ -1,9 +1,48 @@
 import axios from 'axios';
 import { Endpoint, EndpointGroup } from '@/types';
 
+// HTTPS agent for Azure VM's self-signed certificate
+// This is required because pdq.swedencentral.cloudapp.azure.com
+// uses a self-signed or internal CA certificate
+// Can be overridden via NODE_TLS_REJECT_UNAUTHORIZED=0 or ACCEPT_SELF_SIGNED_CERT=true
+// Note: This only applies in Node.js (CLI). Browsers handle HTTPS certificates automatically.
+let httpsAgent: import('https').Agent | undefined;
+
+function getHttpsAgent() {
+  // Only configure HTTPS agent in Node.js environment (not browser)
+  if (typeof window === 'undefined' && typeof process !== 'undefined') {
+    if (!httpsAgent) {
+      try {
+        // Check if we're in Node.js and can access require
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        if (typeof require !== 'undefined') {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { createRequire } = require('module');
+          const nodeRequire = createRequire(import.meta.url);
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const https = nodeRequire('https');
+          const rejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0' 
+            && process.env.ACCEPT_SELF_SIGNED_CERT !== 'true';
+          httpsAgent = new https.Agent({
+            rejectUnauthorized: rejectUnauthorized,
+          });
+        }
+      } catch {
+        // https module not available (browser environment) - this is expected
+        // Browser will use default axios HTTPS handling
+      }
+    }
+  }
+  return httpsAgent;
+}
+
 export async function parseSwaggerUrl(url: string): Promise<{ groups: EndpointGroup[]; baseUrl: string }> {
   try {
-    const response = await axios.get(url);
+    const agent = getHttpsAgent();
+    const response = await axios.get(url, {
+      httpsAgent: agent,
+      timeout: 30000,
+    });
     const spec = response.data;
     
     // Extract base URL
