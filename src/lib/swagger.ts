@@ -47,10 +47,20 @@ export async function parseSwaggerUrl(url: string): Promise<{ groups: EndpointGr
     
     // Extract base URL
     let baseUrl = '';
+    const parsedSwaggerUrl = new URL(url);
     
     // OpenAPI 3.0
     if (spec.servers && spec.servers.length > 0) {
       baseUrl = spec.servers[0].url;
+      
+      // If baseUrl is relative, make it absolute using the swagger URL
+      if (baseUrl.startsWith('/')) {
+        baseUrl = `${parsedSwaggerUrl.protocol}//${parsedSwaggerUrl.host}${baseUrl}`;
+      } else if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+        // Handle relative URLs without leading slash (relative to swagger URL path)
+        const swaggerPath = parsedSwaggerUrl.pathname.substring(0, parsedSwaggerUrl.pathname.lastIndexOf('/'));
+        baseUrl = `${parsedSwaggerUrl.protocol}//${parsedSwaggerUrl.host}${swaggerPath}/${baseUrl}`;
+      }
     }
     // Swagger 2.0
     else if (spec.host) {
@@ -59,8 +69,7 @@ export async function parseSwaggerUrl(url: string): Promise<{ groups: EndpointGr
     }
     // Fallback: derive from swagger URL
     else {
-      const parsedUrl = new URL(url);
-      baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
+      baseUrl = `${parsedSwaggerUrl.protocol}//${parsedSwaggerUrl.host}`;
     }
     
     // Remove trailing slash

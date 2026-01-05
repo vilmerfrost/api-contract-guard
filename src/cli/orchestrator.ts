@@ -1,7 +1,7 @@
 import { parseSwaggerUrl } from '../lib/swagger.js';
 import { runEndpointTest } from '../lib/tester.js';
 import { filterBlacklistedEndpoints } from './blacklist.js';
-import { EndpointGroup, AuthConfig, TestResult } from '../types/index.js';
+import { Endpoint, EndpointGroup, AuthConfig, TestResult } from '../types/index.js';
 
 export interface OrchestratorOptions {
   swaggerUrl: string;
@@ -96,16 +96,32 @@ export class TestOrchestrator {
     groups: EndpointGroup[]
   ): Promise<TestResult[]> {
     const results: TestResult[] = [];
-    let current = 1;
-    const total = groups.length;
     
+    // Flatten all endpoints from all groups
+    const allEndpoints: Array<{ endpoint: Endpoint; groupResource: string }> = [];
     for (const group of groups) {
-      console.log(`[${current}/${total}] Testing: ${group.resource}`);
+      for (const endpoint of group.endpoints) {
+        allEndpoints.push({ endpoint, groupResource: group.resource });
+      }
+    }
+    
+    let current = 1;
+    const total = allEndpoints.length;
+    
+    for (const { endpoint, groupResource } of allEndpoints) {
+      const fullPath = `${endpoint.method} ${endpoint.path}`;
+      console.log(`[${current}/${total}] Testing: ${fullPath}`);
       
       try {
+        // Create a temporary group with just this one endpoint
+        const singleEndpointGroup: EndpointGroup = {
+          resource: endpoint.path,
+          endpoints: [endpoint]
+        };
+        
         const result = await runEndpointTest(
           baseUrl,
-          group,
+          singleEndpointGroup,
           this.options.auth,
           (step) => {
             // Log each step
@@ -128,7 +144,7 @@ export class TestOrchestrator {
       } catch (error: any) {
         console.log(`  ❌ ERROR: ${error.message}`);
         results.push({
-          resource: group.resource,
+          resource: endpoint.path,
           steps: [],
           passed: false,
           differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
@@ -153,25 +169,39 @@ export class TestOrchestrator {
     const maxParallel = this.options.maxParallel || 5;
     const results: TestResult[] = [];
     
+    // Flatten all endpoints from all groups
+    const allEndpoints: Array<{ endpoint: Endpoint; groupResource: string }> = [];
+    for (const group of groups) {
+      for (const endpoint of group.endpoints) {
+        allEndpoints.push({ endpoint, groupResource: group.resource });
+      }
+    }
+    
     console.log(`🚀 Running tests in parallel (max ${maxParallel} concurrent)`);
     console.log('');
     
     // Process in batches
-    for (let i = 0; i < groups.length; i += maxParallel) {
-      const batch = groups.slice(i, i + maxParallel);
+    for (let i = 0; i < allEndpoints.length; i += maxParallel) {
+      const batch = allEndpoints.slice(i, i + maxParallel);
       
-      const batchPromises = batch.map(async (group) => {
+      const batchPromises = batch.map(async ({ endpoint, groupResource }) => {
         try {
+          // Create a temporary group with just this one endpoint
+          const singleEndpointGroup: EndpointGroup = {
+            resource: endpoint.path,
+            endpoints: [endpoint]
+          };
+          
           return await runEndpointTest(
             baseUrl, 
-            group, 
+            singleEndpointGroup, 
             this.options.auth,
             undefined,
             { mode: this.options.mode }
           );
         } catch (error: any) {
           return {
-            resource: group.resource,
+            resource: endpoint.path,
             steps: [],
             passed: false,
             differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
@@ -186,7 +216,8 @@ export class TestOrchestrator {
       // Log batch completion
       batchResults.forEach((result, idx) => {
         const symbol = result.passed ? '✅' : '❌';
-        console.log(`${symbol} ${batch[idx].resource} (${result.duration}ms)`);
+        const fullPath = `${batch[idx].endpoint.method} ${batch[idx].endpoint.path}`;
+        console.log(`${symbol} ${fullPath} (${result.duration}ms)`);
       });
       console.log('');
     }

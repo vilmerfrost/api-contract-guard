@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="API Contract Regression Tests" tests="5" failures="5" errors="0" skipped="0" time="1.514" timestamp="2026-01-05T14:46:20.786Z">
+    <testcase classname="APIRegressionTest" name="/api/v2" time="0.295">
+      <failure message="Test failed without specific differences" type="AssertionError">
+Endpoint: /api/v2
+Duration: 295ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: Invalid URL
+  ❌ DELETE: Invalid URL
+  ❌ POST: No original data to recreate
+  ❌ VERIFY: No new resource ID to verify
+  - COMPARE
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3" time="0.299">
+      <failure message="Test failed without specific differences" type="AssertionError">
+Endpoint: /api/v3
+Duration: 299ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: Invalid URL
+  ❌ DELETE: Invalid URL
+  ❌ POST: No original data to recreate
+  ❌ VERIFY: No new resource ID to verify
+  - COMPARE
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.1" time="0.304">
+      <failure message="Test failed without specific differences" type="AssertionError">
+Endpoint: /api/v3.1
+Duration: 304ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: Invalid URL
+  ❌ DELETE: Invalid URL
+  ❌ POST: No original data to recreate
+  ❌ VERIFY: No new resource ID to verify
+  - COMPARE
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.2" time="0.271">
+      <failure message="Test failed without specific differences" type="AssertionError">
+Endpoint: /api/v3.2
+Duration: 271ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: Invalid URL
+  ❌ DELETE: Invalid URL
+  ❌ POST: No original data to recreate
+  ❌ VERIFY: No new resource ID to verify
+  - COMPARE
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/token" time="0.345">
+      <failure message="Test failed without specific differences" type="AssertionError">
+Endpoint: /token
+Duration: 345ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ DELETE: No DELETE endpoint available
+  ❌ POST: No original data to recreate
+  ❌ VERIFY: No new resource ID to verify
+  - COMPARE
+
+      </failure>
+    </testcase>
+  </testsuite>
+</testsuites>
