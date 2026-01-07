@@ -9,6 +9,7 @@ API Contract Guard is a dual-purpose tool that provides both a web UI and a CLI 
 **Key Features:**
 - 🌐 Modern web UI for manual testing and exploration
 - 🖥️ CLI tool for automated CI/CD integration
+- 🔄 **Hierarchical API Testing** ⭐ NEW: Tests parent-child relationships by looping through all parent resources
 - 🚀 Automatic Azure VM startup for dev environments
 - 🔐 OAuth2 authentication with token caching
 - 📋 Endpoint blacklist filtering
@@ -65,6 +66,8 @@ api-contract-guard test \
 - `--parallel` - Run tests in parallel (default: false)
 - `--max-parallel <n>` - Maximum concurrent tests (default: 5)
 - `--mode <mode>` - Test mode: `full` (CRUD) or `readonly` (GET only) (default: `full`)
+- `--use-real-data` - Discover and use real IDs from API instead of placeholder "1" (default: false)
+- `--use-hierarchical` ⭐ NEW - Test parent-child API relationships (loop through all parent resources) (default: false)
 
 ### Start Azure VM Manually
 
@@ -126,6 +129,32 @@ For each endpoint group (resource):
 3. **POST** - Recreate the resource with the same data (minus metadata fields)
 4. **VERIFY** - Fetch the newly created resource
 5. **COMPARE** - Deep compare original vs recreated (ignoring id, timestamps, etc.)
+
+### Hierarchical API Testing ⭐ NEW
+
+Tests parent-child API relationships by looping through all parent resources:
+
+1. **Fetch Parent Resources** - Get all items from parent API (e.g., `/api/v2/systems`)
+2. **Test Parent** - Verify parent API works
+3. **Loop Through Resources** - For EACH parent resource:
+   - Test all child APIs with that resource ID
+   - Example: `/api/v3/ingest/connection/for/{system}`
+4. **Version Fallback** - If v3 doesn't exist, uses v2 (earliest available)
+
+**Example:**
+```
+GET /api/v2/systems → [SYS001, SYS002, SYS003, ...]
+
+For EACH system:
+  ✓ GET /api/v2/systems/{system}
+  ✓ GET /api/v3/ingest/connection/for/{sourcesystem}
+  ✓ GET /api/v3/ingest/list/for/{sourcesystem}
+  ... (7 child APIs per system)
+
+Result: 8 systems × 7 child APIs = 56 tests
+```
+
+**See:** `HIERARCHICAL-TESTING.md` for complete documentation
 
 ### Endpoint Blacklist
 

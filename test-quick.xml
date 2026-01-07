@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="API Contract Regression Tests" tests="5" failures="5" errors="0" skipped="0" time="1.659" timestamp="2026-01-07T18:19:36.096Z">
+    <testcase classname="APIRegressionTest" name="/api/v2" time="0.408">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2
+Duration: 408ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3" time="0.324">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3
+Duration: 324ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.1" time="0.314">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3.1
+Duration: 314ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.2" time="0.355">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3.2
+Duration: 355ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: Request failed with status code 404
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 404&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/token" time="0.258">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /token
+Duration: 258ms
+
+Test Steps:
+  ✓ AUTH: 200
+  ❌ GET: No GET endpoint available
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;GET endpoint&quot;
+     Actual: &quot;none&quot;
+
+      </failure>
+    </testcase>
+  </testsuite>
+</testsuites>

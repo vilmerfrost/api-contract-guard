@@ -99,11 +99,34 @@ function formatFailureDetails(result: TestResult): string {
     lines.push('Test Steps:');
     result.steps.forEach(step => {
       if (step.error) {
-        lines.push(`  ❌ ${step.step}: ${step.error}`);
+        const statusInfo = step.status ? ` [${step.status}]` : '';
+        const url = step.url || result.resource;
+        const method = step.method || step.step;
+        lines.push(`  ❌ ${step.step}${statusInfo}: ${method} ${url}`);
+        lines.push(`     Error: ${step.error}`);
       } else if (step.status) {
-        lines.push(`  ✓ ${step.step}: ${step.status}`);
+        const statusSymbol = step.status >= 200 && step.status < 300 ? '✓' : '⚠';
+        const url = step.url || result.resource;
+        const method = step.method || step.step;
+        lines.push(`  ${statusSymbol} ${step.step}: ${step.status} - ${method} ${url}`);
       } else {
         lines.push(`  - ${step.step}`);
+      }
+    });
+    lines.push('');
+  }
+  
+  // Add detailed failed requests section
+  const failedSteps = result.steps?.filter(s => s.error || (s.status && (s.status < 200 || s.status >= 400)));
+  if (failedSteps && failedSteps.length > 0) {
+    lines.push('Failed Requests:');
+    failedSteps.forEach(step => {
+      const statusInfo = step.status ? `[${step.status}]` : '[ERROR]';
+      const url = step.url || result.resource;
+      const method = step.method || step.step;
+      lines.push(`  ${method} ${url} ${statusInfo}`);
+      if (step.error) {
+        lines.push(`    └─ ${step.error}`);
       }
     });
     lines.push('');

@@ -1,167 +1,161 @@
-#!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Quick Test Script - API Contract Guard
+# Quick Test Script - API Contract Guard (PowerShell)
 # ═══════════════════════════════════════════════════════════════════════════
-# This script runs a quick validation test using environment variables
-# from .env.local
 
-set -e  # Exit on any error
-
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║              API CONTRACT GUARD - QUICK TEST VALIDATION                   ║${NC}"
-echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
-echo ""
+Write-Host "╔═══════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Blue
+Write-Host "║              API CONTRACT GUARD - QUICK TEST VALIDATION                   ║" -ForegroundColor Blue
+Write-Host "╚═══════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Blue
+Write-Host ""
 
 # Load environment variables
-echo -e "${BLUE}📁 Loading environment variables...${NC}"
-if [ -f .env.local ]; then
-    export $(cat .env.local | grep -v '^#' | grep -v '^$' | xargs)
-    echo -e "${GREEN}✅ Environment loaded${NC}"
-else
-    echo -e "${RED}❌ .env.local not found!${NC}"
+Write-Host "📁 Loading environment variables..." -ForegroundColor Blue
+if (Test-Path ".env.local") {
+    Get-Content ".env.local" | ForEach-Object {
+        if ($_ -match '^([^#][^=]+)=(.*)$') {
+            $name = $matches[1].Trim()
+            $value = $matches[2].Trim()
+            Set-Item -Path "env:$name" -Value $value
+        }
+    }
+    Write-Host "✅ Environment loaded" -ForegroundColor Green
+} else {
+    Write-Host "❌ .env.local not found!" -ForegroundColor Red
     exit 1
-fi
+}
 
 # Verify required variables
-if [ -z "$SWAGGER_URL" ] || [ -z "$TOKEN_URL" ] || [ -z "$API_USERNAME" ] || [ -z "$API_PASSWORD" ]; then
-    echo -e "${RED}❌ Missing required environment variables${NC}"
-    echo -e "${YELLOW}💡 Run: source load-env.sh${NC}"
+if (-not $env:SWAGGER_URL -or -not $env:TOKEN_URL -or -not $env:API_USERNAME -or -not $env:API_PASSWORD) {
+    Write-Host "❌ Missing required environment variables" -ForegroundColor Red
     exit 1
-fi
+}
 
-echo ""
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
-echo -e "${BLUE}TEST 1: VM Accessibility Check${NC}"
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
+Write-Host ""
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
+Write-Host "TEST 1: VM Accessibility Check" -ForegroundColor Blue
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
 
-echo -e "${BLUE}📡 Checking if VM is accessible...${NC}"
-if curl -k -s -f "$SWAGGER_URL" > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ VM is running and accessible${NC}"
-    VM_RUNNING=true
-else
-    echo -e "${YELLOW}⚠️  VM appears to be down or unreachable${NC}"
-    echo -e "${YELLOW}   This is expected if it's past 23:00 (VM auto-shuts down)${NC}"
-    echo -e "${YELLOW}   Either:${NC}"
-    echo -e "${YELLOW}   1. Manually start VM in Azure Portal (vm-pdq-001)${NC}"
-    echo -e "${YELLOW}   2. Wait for test to auto-start it (requires correct AZURE_CLIENT_SECRET)${NC}"
-    VM_RUNNING=false
-fi
+Write-Host "📡 Checking if VM is accessible..." -ForegroundColor Blue
+try {
+    $response = Invoke-WebRequest -Uri $env:SWAGGER_URL -SkipCertificateCheck -TimeoutSec 10 -ErrorAction Stop
+    Write-Host "✅ VM is running and accessible" -ForegroundColor Green
+    $vmRunning = $true
+} catch {
+    Write-Host "⚠️  VM appears to be down or unreachable" -ForegroundColor Yellow
+    Write-Host "   This is expected if it's past 23:00 (VM auto-shuts down)" -ForegroundColor Yellow
+    Write-Host "   Either:" -ForegroundColor Yellow
+    Write-Host "   1. Manually start VM in Azure Portal (vm-pdq-001)" -ForegroundColor Yellow
+    Write-Host "   2. Wait for test to auto-start it (requires correct AZURE_CLIENT_SECRET)" -ForegroundColor Yellow
+    $vmRunning = $false
+}
 
-if [ "$VM_RUNNING" = false ]; then
-    echo ""
-    echo -e "${RED}❌ Cannot proceed with tests - VM is not accessible${NC}"
-    echo ""
-    echo -e "${BLUE}To start the VM:${NC}"
-    echo -e "${YELLOW}Option 1 (Manual):${NC}"
-    echo "  1. Go to Azure Portal"
-    echo "  2. Navigate to: rg-pdq-dev-demo-001 → vm-pdq-001"
-    echo "  3. Click 'Start'"
-    echo "  4. Wait 2-3 minutes"
-    echo "  5. Run this script again"
-    echo ""
-    echo -e "${YELLOW}Option 2 (Automatic - requires correct Azure secret):${NC}"
-    echo "  node dist/cli/cli.js vm-start --api-url $SWAGGER_URL"
-    echo ""
+if (-not $vmRunning) {
+    Write-Host ""
+    Write-Host "❌ Cannot proceed with tests - VM is not accessible" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "To start the VM:" -ForegroundColor Blue
+    Write-Host "Option 1 (Manual):" -ForegroundColor Yellow
+    Write-Host "  1. Go to Azure Portal"
+    Write-Host "  2. Navigate to: rg-pdq-dev-demo-001 → vm-pdq-001"
+    Write-Host "  3. Click 'Start'"
+    Write-Host "  4. Wait 2-3 minutes"
+    Write-Host "  5. Run this script again"
+    Write-Host ""
+    Write-Host "Option 2 (Automatic - requires correct Azure secret):" -ForegroundColor Yellow
+    Write-Host "  node dist/cli/cli.js vm-start --api-url $env:SWAGGER_URL"
+    Write-Host ""
     exit 1
-fi
+}
 
-echo ""
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
-echo -e "${BLUE}TEST 2: Endpoint Discovery${NC}"
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
+Write-Host ""
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
+Write-Host "TEST 2: Endpoint Discovery" -ForegroundColor Blue
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
 
-echo -e "${BLUE}📋 Fetching and parsing Swagger specification...${NC}"
-node dist/cli/cli.js list-endpoints --swagger-url "$SWAGGER_URL"
+Write-Host "📋 Fetching and parsing Swagger specification..." -ForegroundColor Blue
+node dist/cli/cli.js list-endpoints --swagger-url $env:SWAGGER_URL
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo -e "${GREEN}✅ Endpoint discovery successful${NC}"
-else
-    echo ""
-    echo -e "${RED}❌ Endpoint discovery failed${NC}"
+if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-Host "✅ Endpoint discovery successful" -ForegroundColor Green
+} else {
+    Write-Host ""
+    Write-Host "❌ Endpoint discovery failed" -ForegroundColor Red
     exit 1
-fi
+}
 
-echo ""
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
-echo -e "${BLUE}TEST 3: OAuth2 Authentication & Regression Tests (3 endpoints)${NC}"
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
+Write-Host ""
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
+Write-Host "TEST 3: OAuth2 Authentication & Regression Tests (3 endpoints)" -ForegroundColor Blue
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
 
-echo -e "${BLUE}🧪 Running regression tests on 3 endpoints...${NC}"
-echo ""
+Write-Host "🧪 Running regression tests on 3 endpoints..." -ForegroundColor Blue
+Write-Host ""
 
-node dist/cli/cli.js test \
-  --swagger-url "$SWAGGER_URL" \
-  --token-url "$TOKEN_URL" \
-  --username "$API_USERNAME" \
-  --password "$API_PASSWORD" \
-  --skip-vm-start \
-  --max-tests 3 \
+node dist/cli/cli.js test `
+  --swagger-url $env:SWAGGER_URL `
+  --token-url $env:TOKEN_URL `
+  --username $env:API_USERNAME `
+  --password $env:API_PASSWORD `
+  --skip-vm-start `
+  --max-tests 3 `
   --output test-results-quick.xml
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo -e "${GREEN}✅ Regression tests completed successfully${NC}"
-else
-    echo ""
-    echo -e "${RED}❌ Regression tests failed${NC}"
+if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-Host "✅ Regression tests completed successfully" -ForegroundColor Green
+} else {
+    Write-Host ""
+    Write-Host "❌ Regression tests failed" -ForegroundColor Red
     exit 1
-fi
+}
 
-echo ""
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
-echo -e "${BLUE}TEST 4: JUnit XML Validation${NC}"
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
+Write-Host ""
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
+Write-Host "TEST 4: JUnit XML Validation" -ForegroundColor Blue
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
 
-if [ -f test-results-quick.xml ]; then
-    echo -e "${GREEN}✅ JUnit XML report generated${NC}"
-    echo -e "${BLUE}📄 Location: test-results-quick.xml${NC}"
-    echo ""
-    echo -e "${BLUE}Preview:${NC}"
-    head -n 20 test-results-quick.xml
-else
-    echo -e "${YELLOW}⚠️  JUnit XML not found (might not have been generated)${NC}"
-fi
+if (Test-Path "test-results-quick.xml") {
+    Write-Host "✅ JUnit XML report generated" -ForegroundColor Green
+    Write-Host "📄 Location: test-results-quick.xml" -ForegroundColor Blue
+    Write-Host ""
+    Write-Host "Preview:" -ForegroundColor Blue
+    Get-Content "test-results-quick.xml" -Head 20
+} else {
+    Write-Host "⚠️  JUnit XML not found (might not have been generated)" -ForegroundColor Yellow
+}
 
-echo ""
-echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║                           TEST SUMMARY                                    ║${NC}"
-echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${GREEN}✅ All quick tests passed!${NC}"
-echo ""
-echo -e "${BLUE}The following components are working:${NC}"
-echo "  ✅ SSL/TLS handling (self-signed certificates)"
-echo "  ✅ Swagger/OpenAPI parsing"
-echo "  ✅ Endpoint blacklist filtering (37 endpoints excluded)"
-echo "  ✅ OAuth2 authentication"
-echo "  ✅ Regression test execution (GET→DELETE→POST→VERIFY→COMPARE)"
-echo "  ✅ JUnit XML report generation"
-echo ""
-echo -e "${YELLOW}⚠️  VM auto-start NOT tested (requires correct AZURE_CLIENT_SECRET)${NC}"
-echo ""
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
-echo -e "${BLUE}NEXT STEPS${NC}"
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
-echo ""
-echo -e "${GREEN}1. Run full test suite:${NC}"
-echo "   node dist/cli/cli.js test \\"
-echo "     --swagger-url \$SWAGGER_URL \\"
-echo "     --token-url \$TOKEN_URL \\"
-echo "     --username \$API_USERNAME \\"
-echo "     --password \$API_PASSWORD \\"
-echo "     --skip-vm-start"
-echo ""
-echo -e "${GREEN}2. Get correct Azure Client Secret from Stefan to enable VM auto-start${NC}"
-echo ""
-echo -e "${GREEN}3. Set up CI/CD pipeline (CircleCI or Bitbucket)${NC}"
-echo ""
-echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
-echo ""
+Write-Host ""
+Write-Host "╔═══════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Blue
+Write-Host "║                           TEST SUMMARY                                    ║" -ForegroundColor Blue
+Write-Host "╚═══════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Blue
+Write-Host ""
+Write-Host "✅ All quick tests passed!" -ForegroundColor Green
+Write-Host ""
+Write-Host "The following components are working:" -ForegroundColor Blue
+Write-Host "  ✅ SSL/TLS handling (self-signed certificates)"
+Write-Host "  ✅ Swagger/OpenAPI parsing"
+Write-Host "  ✅ Endpoint blacklist filtering (37 endpoints excluded)"
+Write-Host "  ✅ OAuth2 authentication"
+Write-Host "  ✅ Regression test execution (GET→DELETE→POST→VERIFY→COMPARE)"
+Write-Host "  ✅ JUnit XML report generation"
+Write-Host ""
+Write-Host "⚠️  VM auto-start NOT tested (requires correct AZURE_CLIENT_SECRET)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
+Write-Host "NEXT STEPS" -ForegroundColor Blue
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
+Write-Host ""
+Write-Host "1. Run full test suite:" -ForegroundColor Green
+Write-Host "   node dist/cli/cli.js test \"
+Write-Host "     --swagger-url `$env:SWAGGER_URL \"
+Write-Host "     --token-url `$env:TOKEN_URL \"
+Write-Host "     --username `$env:API_USERNAME \"
+Write-Host "     --password `$env:API_PASSWORD \"
+Write-Host "     --skip-vm-start"
+Write-Host ""
+Write-Host "2. Get correct Azure Client Secret from Stefan to enable VM auto-start" -ForegroundColor Green
+Write-Host ""
+Write-Host "3. Set up CI/CD pipeline (CircleCI or Bitbucket)" -ForegroundColor Green
+Write-Host ""
+Write-Host "─────────────────────────────────────────────────────────────────────────────" -ForegroundColor Blue
+Write-Host ""

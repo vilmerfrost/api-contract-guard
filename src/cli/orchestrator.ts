@@ -1,6 +1,8 @@
 import { parseSwaggerUrl } from '../lib/swagger.js';
 import { runEndpointTest } from '../lib/tester.js';
 import { filterBlacklistedEndpoints } from './blacklist.js';
+import { discoverTestData, discoverHierarchicalTestData, TestDataCache, HierarchicalTestData } from '../lib/data-discovery.js';
+import { findParentApiDefinition, getChildApiPaths, isChildApi } from '../lib/hierarchical-apis.js';
 import { Endpoint, EndpointGroup, AuthConfig, TestResult } from '../types/index.js';
 
 export interface OrchestratorOptions {
@@ -9,6 +11,8 @@ export interface OrchestratorOptions {
   mode?: 'full' | 'readonly';
   parallel?: boolean;
   maxParallel?: number;
+  useRealData?: boolean; // Enable real data discovery
+  useHierarchical?: boolean; // Enable hierarchical parent-child API testing
 }
 
 export interface OrchestratorResult {
@@ -50,6 +54,30 @@ export class TestOrchestrator {
     console.log(`✅ Found ${groups.length} endpoint groups`);
     console.log(`🔗 Base URL: ${baseUrl}`);
     
+    // Discover real test data if enabled
+    let testDataCache: TestDataCache | undefined;
+    let hierarchicalData: HierarchicalTestData[] | undefined;
+    
+    if (this.options.useHierarchical) {
+      // Hierarchical mode: discover parent-child relationships
+      try {
+        hierarchicalData = await discoverHierarchicalTestData(baseUrl, this.options.auth);
+      } catch (error: any) {
+        console.warn(`⚠️  Hierarchical data discovery failed: ${error.message}`);
+        console.warn(`   Falling back to standard testing`);
+        console.log('');
+      }
+    } else if (this.options.useRealData) {
+      // Standard mode: discover real IDs
+      try {
+        testDataCache = await discoverTestData(baseUrl, this.options.auth);
+      } catch (error: any) {
+        console.warn(`⚠️  Data discovery failed: ${error.message}`);
+        console.warn(`   Falling back to placeholder IDs`);
+        console.log('');
+      }
+    }
+    
     // Filter blacklisted endpoints
     const filteredGroups = groups.map(group => ({
       ...group,
@@ -66,10 +94,22 @@ export class TestOrchestrator {
     // Run tests
     const results: TestResult[] = [];
     
-    if (this.options.parallel) {
-      results.push(...await this.runParallel(baseUrl, filteredGroups));
+    if (this.options.useHierarchical && hierarchicalData) {
+      // Hierarchical mode: test parent APIs and loop through child APIs
+      console.log('🔄 Running hierarchical tests (parent → child loop)');
+      console.log('');
+      results.push(...await this.runHierarchical(baseUrl, filteredGroups, hierarchicalData));
     } else {
-      results.push(...await this.runSequential(baseUrl, filteredGroups));
+      // Standard mode: test endpoints normally
+      // Print all URLs that will be tested
+      await this.printTestUrls(baseUrl, filteredGroups, this.options.mode || 'full', testDataCache);
+      console.log('');
+      
+      if (this.options.parallel) {
+        results.push(...await this.runParallel(baseUrl, filteredGroups, testDataCache));
+      } else {
+        results.push(...await this.runSequential(baseUrl, filteredGroups, testDataCache));
+      }
     }
     
     const duration = Date.now() - startTime;
@@ -93,7 +133,8 @@ export class TestOrchestrator {
    */
   private async runSequential(
     baseUrl: string,
-    groups: EndpointGroup[]
+    groups: EndpointGroup[],
+    testDataCache?: TestDataCache
   ): Promise<TestResult[]> {
     const results: TestResult[] = [];
     
@@ -101,12 +142,20 @@ export class TestOrchestrator {
     const allEndpoints: Array<{ endpoint: Endpoint; groupResource: string }> = [];
     for (const group of groups) {
       for (const endpoint of group.endpoints) {
+        // READONLY MODE: Skip non-GET endpoints entirely
+        if (this.options.mode === 'readonly' && endpoint.method !== 'GET') {
+          continue;
+        }
+        
         allEndpoints.push({ endpoint, groupResource: group.resource });
       }
     }
     
     let current = 1;
     const total = allEndpoints.length;
+    
+    console.log(`📊 Testing ${total} endpoints (${this.options.mode === 'readonly' ? 'readonly mode - GET only' : 'full CRUD mode'})`);
+    console.log('');
     
     for (const { endpoint, groupResource } of allEndpoints) {
       const fullPath = `${endpoint.method} ${endpoint.path}`;
@@ -124,14 +173,17 @@ export class TestOrchestrator {
           singleEndpointGroup,
           this.options.auth,
           (step) => {
-            // Log each step
+            // Log each step with detailed error information
             if (step.error) {
-              console.log(`  ❌ ${step.step}: ${step.error}`);
+              const statusInfo = step.status ? ` [${step.status}]` : '';
+              console.log(`  ❌ ${step.step}${statusInfo}: ${step.url || endpoint.path}`);
+              console.log(`     Error: ${step.error}`);
             } else if (step.status) {
-              console.log(`  ✓ ${step.step}: ${step.status}`);
+              const statusSymbol = step.status >= 200 && step.status < 300 ? '✓' : '⚠';
+              console.log(`  ${statusSymbol} ${step.step}: ${step.status} - ${step.url || endpoint.path}`);
             }
           },
-          { mode: this.options.mode }
+          { mode: this.options.mode, testDataCache }
         );
         
         results.push(result);
@@ -139,7 +191,26 @@ export class TestOrchestrator {
         if (result.passed) {
           console.log(`  ✅ PASSED (${result.duration}ms)`);
         } else {
-          console.log(`  ❌ FAILED (${result.differences?.length || 0} differences)`);
+          console.log(`  ❌ FAILED`);
+          
+          // Log all failed steps with full details
+          const failedSteps = result.steps.filter(s => s.error || (s.status && (s.status < 200 || s.status >= 400)));
+          if (failedSteps.length > 0) {
+            console.log(`     Failed requests:`);
+            failedSteps.forEach(step => {
+              const statusInfo = step.status ? `[${step.status}]` : '[ERROR]';
+              const url = step.url || endpoint.path;
+              const method = step.method || step.step;
+              console.log(`       ${method} ${url} ${statusInfo}`);
+              if (step.error) {
+                console.log(`       └─ ${step.error}`);
+              }
+            });
+          }
+          
+          if (result.differences && result.differences.length > 0) {
+            console.log(`     Differences: ${result.differences.length}`);
+          }
         }
       } catch (error: any) {
         console.log(`  ❌ ERROR: ${error.message}`);
@@ -164,7 +235,8 @@ export class TestOrchestrator {
    */
   private async runParallel(
     baseUrl: string,
-    groups: EndpointGroup[]
+    groups: EndpointGroup[],
+    testDataCache?: TestDataCache
   ): Promise<TestResult[]> {
     const maxParallel = this.options.maxParallel || 5;
     const results: TestResult[] = [];
@@ -173,10 +245,16 @@ export class TestOrchestrator {
     const allEndpoints: Array<{ endpoint: Endpoint; groupResource: string }> = [];
     for (const group of groups) {
       for (const endpoint of group.endpoints) {
+        // READONLY MODE: Skip non-GET endpoints entirely
+        if (this.options.mode === 'readonly' && endpoint.method !== 'GET') {
+          continue;
+        }
+        
         allEndpoints.push({ endpoint, groupResource: group.resource });
       }
     }
     
+    console.log(`📊 Testing ${allEndpoints.length} endpoints (${this.options.mode === 'readonly' ? 'readonly mode - GET only' : 'full CRUD mode'})`);
     console.log(`🚀 Running tests in parallel (max ${maxParallel} concurrent)`);
     console.log('');
     
@@ -197,7 +275,7 @@ export class TestOrchestrator {
             singleEndpointGroup, 
             this.options.auth,
             undefined,
-            { mode: this.options.mode }
+            { mode: this.options.mode, testDataCache }
           );
         } catch (error: any) {
           return {
@@ -226,6 +304,312 @@ export class TestOrchestrator {
   }
   
   /**
+   * Print all URLs that will be tested
+   */
+  private async printTestUrls(baseUrl: string, groups: EndpointGroup[], mode: 'full' | 'readonly', testDataCache?: TestDataCache): Promise<void> {
+    console.log('═══════════════════════════════════════');
+    console.log('        ALL TESTABLE ENDPOINTS');
+    console.log('═══════════════════════════════════════');
+    console.log('');
+    console.log(`Base URL: ${baseUrl}`);
+    console.log(`Mode: ${mode === 'full' ? 'Full CRUD' : 'Readonly (GET only)'}`);
+    if (testDataCache) {
+      console.log(`Data: Using real IDs from API ✨`);
+    } else {
+      console.log(`Data: Using placeholder IDs (1)`);
+    }
+    console.log('');
+    
+    // Collect all endpoints that will be tested
+    const allTestUrls: Array<{ method: string; url: string; path: string; summary?: string; group: string }> = [];
+    
+    for (const group of groups) {
+      for (const endpoint of group.endpoints) {
+        // Replace path parameters with real IDs or placeholder
+        let testPath: string;
+        if (testDataCache) {
+          // Import substitutePathParameters dynamically
+          const { substitutePathParameters } = await import('../lib/data-discovery.js');
+          testPath = substitutePathParameters(endpoint.path, testDataCache);
+        } else {
+          testPath = endpoint.path.replace(/\{[^}]+\}/g, '1');
+        }
+        
+        const fullUrl = `${baseUrl}${testPath}`;
+        
+        // In readonly mode, only GET endpoints are tested
+        if (mode === 'readonly' && endpoint.method !== 'GET') {
+          continue;
+        }
+        
+        allTestUrls.push({
+          method: endpoint.method,
+          url: fullUrl,
+          path: endpoint.path,
+          summary: endpoint.summary,
+          group: group.resource
+        });
+      }
+    }
+    
+    // Print all URLs grouped by resource
+    let currentGroup = '';
+    let urlIndex = 1;
+    
+    for (const { method, url, path, summary, group } of allTestUrls) {
+      if (group !== currentGroup) {
+        if (currentGroup !== '') {
+          console.log('');
+        }
+        console.log(`📁 ${group}`);
+        console.log('─'.repeat(70));
+        currentGroup = group;
+      }
+      
+      const methodColor = method === 'GET' ? '🟢' : method === 'POST' ? '🔵' : method === 'DELETE' ? '🔴' : method === 'PUT' ? '🟡' : '⚪';
+      
+      console.log(`  ${methodColor} ${method.padEnd(6)} ${url}`);
+      if (path !== url.replace(baseUrl, '')) {
+        console.log(`      Path: ${path}`);
+      }
+      if (summary) {
+        console.log(`      ${summary}`);
+      }
+      urlIndex++;
+    }
+    
+    console.log('');
+    console.log('═══════════════════════════════════════');
+    console.log(`Total URLs to test: ${allTestUrls.length}`);
+    if (mode === 'full') {
+      console.log('Note: Full CRUD mode will perform GET → DELETE → POST → VERIFY for each endpoint group');
+    } else {
+      console.log('Note: Readonly mode will only perform GET requests');
+    }
+    console.log('═══════════════════════════════════════');
+  }
+  
+  /**
+   * Run hierarchical tests (parent-child loop)
+   * Tests parent APIs first, then loops through all resources to test child APIs
+   */
+  private async runHierarchical(
+    baseUrl: string,
+    groups: EndpointGroup[],
+    hierarchicalData: HierarchicalTestData[]
+  ): Promise<TestResult[]> {
+    const results: TestResult[] = [];
+    let testCount = 1;
+    
+    // Calculate total tests
+    const totalTests = hierarchicalData.reduce((sum, data) => {
+      return sum + 1 + (data.resources.length * data.childApiCount); // 1 parent + (resources × children)
+    }, 0);
+    
+    console.log(`📊 Total hierarchical tests: ${totalTests}`);
+    console.log('');
+    
+    for (const parentData of hierarchicalData) {
+      console.log('═══════════════════════════════════════');
+      console.log(`  TESTING: ${parentData.description}`);
+      console.log(`  Parent: ${parentData.parentPath}`);
+      console.log(`  Resources: ${parentData.resources.length}`);
+      console.log(`  Child APIs per resource: ${parentData.childApiCount}`);
+      console.log('═══════════════════════════════════════');
+      console.log('');
+      
+      // Step 1: Test the parent API
+      console.log(`[${testCount}/${totalTests}] Testing parent: GET ${parentData.parentPath}`);
+      testCount++;
+      
+      try {
+        // Find the parent endpoint in groups
+        const parentEndpoint = this.findEndpointByPath(groups, parentData.parentPath);
+        
+        if (parentEndpoint) {
+          const singleEndpointGroup: EndpointGroup = {
+            resource: parentData.parentPath,
+            endpoints: [parentEndpoint]
+          };
+          
+          const result = await runEndpointTest(
+            baseUrl,
+            singleEndpointGroup,
+            this.options.auth,
+            (step) => {
+              if (step.error) {
+                const statusInfo = step.status ? ` [${step.status}]` : '';
+                console.log(`  ❌ ${step.step}${statusInfo}: ${step.url || parentData.parentPath}`);
+                console.log(`     Error: ${step.error}`);
+              } else if (step.status) {
+                const statusSymbol = step.status >= 200 && step.status < 300 ? '✓' : '⚠';
+                console.log(`  ${statusSymbol} ${step.step}: ${step.status}`);
+              }
+            },
+            { mode: this.options.mode }
+          );
+          
+          results.push(result);
+          
+          if (result.passed) {
+            console.log(`  ✅ PASSED (${result.duration}ms)`);
+          } else {
+            console.log(`  ❌ FAILED`);
+          }
+        } else {
+          console.log(`  ⚠️  Parent endpoint not found in Swagger spec`);
+        }
+      } catch (error: any) {
+        console.log(`  ❌ ERROR: ${error.message}`);
+      }
+      
+      console.log('');
+      
+      // Step 2: Loop through all resources and test child APIs
+      for (const resource of parentData.resources) {
+        const displayName = resource.name ? `${resource.id} (${resource.name})` : resource.id;
+        console.log(`📋 Testing child APIs for resource: ${displayName}`);
+        console.log('');
+        
+        // Get all child API paths for this resource
+        const parentDefinition = findParentApiDefinition(parentData.parentPath);
+        if (!parentDefinition) continue;
+        
+        const childPaths = getChildApiPaths(parentDefinition, resource.id);
+        
+        // Test each child API
+        for (const childPath of childPaths) {
+          console.log(`[${testCount}/${totalTests}] Testing: GET ${childPath.path}`);
+          testCount++;
+          
+          try {
+            // Find the child endpoint in groups (try to match by pattern)
+            const childEndpoint = this.findEndpointByPath(groups, childPath.path);
+            
+            if (childEndpoint) {
+              const singleEndpointGroup: EndpointGroup = {
+                resource: childPath.path,
+                endpoints: [childEndpoint]
+              };
+              
+              const result = await runEndpointTest(
+                baseUrl,
+                singleEndpointGroup,
+                this.options.auth,
+                (step) => {
+                  if (step.error) {
+                    const statusInfo = step.status ? ` [${step.status}]` : '';
+                    console.log(`  ❌ ${step.step}${statusInfo}: ${step.url || childPath.path}`);
+                    console.log(`     Error: ${step.error}`);
+                  } else if (step.status) {
+                    const statusSymbol = step.status >= 200 && step.status < 300 ? '✓' : '⚠';
+                    console.log(`  ${statusSymbol} ${step.step}: ${step.status}`);
+                  }
+                },
+                { mode: this.options.mode }
+              );
+              
+              results.push(result);
+              
+              if (result.passed) {
+                console.log(`  ✅ PASSED (${result.duration}ms)`);
+              } else {
+                console.log(`  ❌ FAILED`);
+              }
+            } else {
+              // Child endpoint not found - create a simple GET test
+              console.log(`  ℹ️  Endpoint not in spec, testing directly...`);
+              
+              const endpoint: Endpoint = {
+                method: 'GET',
+                path: childPath.path,
+                summary: childPath.description
+              };
+              
+              const singleEndpointGroup: EndpointGroup = {
+                resource: childPath.path,
+                endpoints: [endpoint]
+              };
+              
+              const result = await runEndpointTest(
+                baseUrl,
+                singleEndpointGroup,
+                this.options.auth,
+                (step) => {
+                  if (step.error) {
+                    const statusInfo = step.status ? ` [${step.status}]` : '';
+                    console.log(`  ❌ ${step.step}${statusInfo}: ${step.url || childPath.path}`);
+                    console.log(`     Error: ${step.error}`);
+                  } else if (step.status) {
+                    const statusSymbol = step.status >= 200 && step.status < 300 ? '✓' : '⚠';
+                    console.log(`  ${statusSymbol} ${step.step}: ${step.status}`);
+                  }
+                },
+                { mode: this.options.mode }
+              );
+              
+              results.push(result);
+              
+              if (result.passed) {
+                console.log(`  ✅ PASSED (${result.duration}ms)`);
+              } else {
+                console.log(`  ❌ FAILED`);
+              }
+            }
+          } catch (error: any) {
+            console.log(`  ❌ ERROR: ${error.message}`);
+            results.push({
+              resource: childPath.path,
+              steps: [],
+              passed: false,
+              differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
+              duration: 0
+            });
+          }
+          
+          console.log('');
+        }
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * Find an endpoint by path in groups
+   * Matches both exact paths and paths with parameters
+   */
+  private findEndpointByPath(groups: EndpointGroup[], path: string): Endpoint | null {
+    // Normalize path
+    const normalizedPath = path.split('?')[0].replace(/\/$/, '');
+    
+    for (const group of groups) {
+      for (const endpoint of group.endpoints) {
+        const normalizedEndpointPath = endpoint.path.split('?')[0].replace(/\/$/, '');
+        
+        // Exact match
+        if (normalizedEndpointPath === normalizedPath) {
+          return endpoint;
+        }
+        
+        // Pattern match (e.g., /api/v2/systems/{system} matches /api/v2/systems/SYS001)
+        const regexPattern = normalizedEndpointPath.replace(/\{[^}]+\}/g, '[^/]+');
+        const regex = new RegExp(`^${regexPattern}$`);
+        
+        if (regex.test(normalizedPath)) {
+          // Create a copy of the endpoint with the actual path
+          return {
+            ...endpoint,
+            path: normalizedPath
+          };
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
    * Print summary
    */
   printSummary(result: OrchestratorResult): void {
@@ -242,18 +626,43 @@ export class TestOrchestrator {
     console.log('');
     
     if (result.failed > 0) {
-      console.log('Failed Tests:');
+      console.log('═══════════════════════════════════════');
+      console.log('           FAILED REQUESTS');
+      console.log('═══════════════════════════════════════');
+      console.log('');
+      
       result.results.filter(r => !r.passed).forEach(r => {
-        console.log(`  ❌ ${r.resource}`);
-        if (r.differences && r.differences.length > 0) {
-          r.differences.slice(0, 3).forEach(d => {
-            console.log(`     - ${d.path}: ${d.type}`);
+        console.log(`❌ ${r.resource}`);
+        
+        // Log all failed steps with full URL and status code
+        const failedSteps = r.steps.filter(s => s.error || (s.status && (s.status < 200 || s.status >= 400)));
+        if (failedSteps.length > 0) {
+          failedSteps.forEach(step => {
+            const statusInfo = step.status ? `[${step.status}]` : '[ERROR]';
+            const url = step.url || r.resource;
+            const method = step.method || step.step;
+            console.log(`   ${method.padEnd(7)} ${url} ${statusInfo}`);
+            if (step.error) {
+              console.log(`            └─ ${step.error}`);
+            }
           });
-          if (r.differences.length > 3) {
-            console.log(`     ... and ${r.differences.length - 3} more`);
+        }
+        
+        // Log differences if any
+        if (r.differences && r.differences.length > 0) {
+          console.log(`   Differences: ${r.differences.length}`);
+          r.differences.slice(0, 2).forEach(d => {
+            console.log(`     • ${d.path}: ${d.type}`);
+          });
+          if (r.differences.length > 2) {
+            console.log(`     ... and ${r.differences.length - 2} more`);
           }
         }
+        
+        console.log('');
       });
+      
+      console.log('═══════════════════════════════════════');
       console.log('');
     }
   }

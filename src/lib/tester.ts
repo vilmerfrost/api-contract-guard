@@ -2,6 +2,7 @@ import { AxiosRequestConfig } from 'axios';
 import { TestStep, TestResult, EndpointGroup, AuthConfig } from '@/types';
 import { deepCompare, stripMetaFields } from './comparator.js';
 import { createAxiosInstance } from './utils.js';
+import { substitutePathParameters } from './data-discovery.js';
 
 const axios = createAxiosInstance();
 
@@ -73,6 +74,7 @@ async function getOAuth2Token(
 
 export interface TestOptions {
   mode?: 'full' | 'readonly';
+  testDataCache?: import('./data-discovery.js').TestDataCache;
 }
 
 export async function runEndpointTest(
@@ -90,6 +92,22 @@ export async function runEndpointTest(
   const addStep = (step: TestStep) => {
     steps.push(step);
     onStepComplete?.(step);
+  };
+  
+  // Helper to build full URL for logging
+  const buildFullUrl = (path: string): string => {
+    return `${baseUrl}${path}`;
+  };
+  
+  // Helper to substitute path parameters with real IDs
+  const substitutePath = (path: string): string => {
+    if (options?.testDataCache) {
+      // Use real IDs from cache
+      return substitutePathParameters(path, options.testDataCache);
+    } else {
+      // Use placeholder "1"
+      return path.replace(/\{[^}]+\}/g, '1');
+    }
   };
   
   // Build auth headers
@@ -112,14 +130,20 @@ export async function runEndpointTest(
         timestamp: new Date(),
       });
     } catch (error: any) {
+      const statusCode = error.response?.status || 0;
+      const errorMsg = `OAuth2 authentication failed: ${error.message}`;
+      
       addStep({
         step: 'AUTH',
         method: 'POST',
         url: auth.tokenUrl,
-        status: error.response?.status || 0,
-        error: `OAuth2 authentication failed: ${error.message}`,
+        status: statusCode,
+        error: errorMsg,
         timestamp: new Date(),
       });
+      
+      // Log detailed error to console
+      console.error(`  ❌ AUTH failed: ${auth.tokenUrl} [${statusCode}] - ${errorMsg}`);
       
       return {
         resource: group.resource,
@@ -154,13 +178,16 @@ export async function runEndpointTest(
       const testEndpoint = getEndpoint || getListEndpoint;
       
       if (!testEndpoint) {
+        const errorMsg = 'No GET endpoint available';
         addStep({
           step: 'GET',
           method: 'GET',
           url: group.resource,
-          error: 'No GET endpoint available',
+          error: errorMsg,
           timestamp: new Date(),
         });
+        
+        console.error(`  ❌ GET failed: ${group.resource} - ${errorMsg}`);
         
         return {
           resource: group.resource,
@@ -171,15 +198,16 @@ export async function runEndpointTest(
         };
       }
       
-      const testPath = testEndpoint.path.replace(/\{[^}]+\}/g, '1');
+      const testPath = substitutePath(testEndpoint.path);
+      const fullUrl = buildFullUrl(testPath);
       
       try {
-        const response = await axios.get(`${baseUrl}${testPath}`, config);
+        const response = await axios.get(fullUrl, config);
         
         addStep({
           step: 'GET',
           method: 'GET',
-          url: testPath,
+          url: fullUrl,
           status: response.status,
           data: response.data,
           timestamp: new Date(),
@@ -195,20 +223,26 @@ export async function runEndpointTest(
           duration: Date.now() - startTime,
         };
       } catch (error: any) {
+        const statusCode = error.response?.status || 0;
+        const errorMsg = error.message;
+        
         addStep({
           step: 'GET',
           method: 'GET',
-          url: testPath,
-          status: error.response?.status || 0,
-          error: error.message,
+          url: fullUrl,
+          status: statusCode,
+          error: errorMsg,
           timestamp: new Date(),
         });
+        
+        // Log detailed error to console
+        console.error(`  ❌ GET failed: ${fullUrl} [${statusCode}] - ${errorMsg}`);
         
         return {
           resource: group.resource,
           steps,
           passed: false,
-          differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
+          differences: [{ path: 'error', expected: 'success', actual: errorMsg, type: 'changed' }],
           duration: Date.now() - startTime,
         };
       }
@@ -217,23 +251,27 @@ export async function runEndpointTest(
     // Full CRUD mode continues below...
     // Try GET with ID
     if (getEndpoint) {
-      const getPath = getEndpoint.path.replace(/\{[^}]+\}/g, resourceId);
+      const getPath = substitutePath(getEndpoint.path);
+      const fullUrl = buildFullUrl(getPath);
       
       try {
-        getResponse = await axios.get(`${baseUrl}${getPath}`, config);
+        getResponse = await axios.get(fullUrl, config);
         addStep({
           step: 'GET',
           method: 'GET',
-          url: getPath,
+          url: fullUrl,
           status: getResponse.status,
           data: getResponse.data,
           timestamp: new Date(),
         });
         originalData = getResponse.data;
       } catch (error: any) {
-        if (error.response?.status === 404 && getListEndpoint) {
+        const statusCode = error.response?.status || 0;
+        
+        if (statusCode === 404 && getListEndpoint) {
           // Try getting list
-          const listResponse = await axios.get(`${baseUrl}${getListEndpoint.path}`, config);
+          const listUrl = buildFullUrl(getListEndpoint.path);
+          const listResponse = await axios.get(listUrl, config);
           const items = Array.isArray(listResponse.data) ? listResponse.data : listResponse.data?.items || listResponse.data?.data || [];
           
           if (items.length > 0) {
@@ -242,7 +280,7 @@ export async function runEndpointTest(
             addStep({
               step: 'GET',
               method: 'GET',
-              url: getListEndpoint.path,
+              url: listUrl,
               status: 200,
               data: originalData,
               timestamp: new Date(),
@@ -251,7 +289,7 @@ export async function runEndpointTest(
             addStep({
               step: 'GET',
               method: 'GET',
-              url: getListEndpoint.path,
+              url: listUrl,
               status: 200,
               data: null,
               error: 'No resources found in collection',
@@ -259,19 +297,25 @@ export async function runEndpointTest(
             });
           }
         } else {
+          const errorMsg = error.message;
           addStep({
             step: 'GET',
             method: 'GET',
-            url: getPath,
-            status: error.response?.status || 0,
-            error: error.message,
+            url: fullUrl,
+            status: statusCode,
+            error: errorMsg,
             timestamp: new Date(),
           });
+          
+          // Log detailed error to console
+          console.error(`  ❌ GET failed: ${fullUrl} [${statusCode}] - ${errorMsg}`);
         }
       }
     } else if (getListEndpoint) {
+      const listUrl = buildFullUrl(getListEndpoint.path);
+      
       try {
-        const listResponse = await axios.get(`${baseUrl}${getListEndpoint.path}`, config);
+        const listResponse = await axios.get(listUrl, config);
         const items = Array.isArray(listResponse.data) ? listResponse.data : listResponse.data?.items || listResponse.data?.data || [];
         
         if (items.length > 0) {
@@ -282,45 +326,60 @@ export async function runEndpointTest(
         addStep({
           step: 'GET',
           method: 'GET',
-          url: getListEndpoint.path,
+          url: listUrl,
           status: listResponse.status,
           data: originalData || items,
           timestamp: new Date(),
         });
       } catch (error: any) {
+        const statusCode = error.response?.status || 0;
+        const errorMsg = error.message;
+        
         addStep({
           step: 'GET',
           method: 'GET',
-          url: getListEndpoint.path,
-          status: error.response?.status || 0,
-          error: error.message,
+          url: listUrl,
+          status: statusCode,
+          error: errorMsg,
           timestamp: new Date(),
         });
+        
+        // Log detailed error to console
+        console.error(`  ❌ GET failed: ${listUrl} [${statusCode}] - ${errorMsg}`);
       }
     }
     
     // Step 2: DELETE
     if (deleteEndpoint && resourceId) {
-      const deletePath = deleteEndpoint.path.replace(/\{[^}]+\}/g, resourceId);
+      const deletePath = substitutePath(deleteEndpoint.path);
+      const fullUrl = buildFullUrl(deletePath);
       
       try {
-        const deleteResponse = await axios.delete(`${baseUrl}${deletePath}`, config);
+        const deleteResponse = await axios.delete(fullUrl, config);
         addStep({
           step: 'DELETE',
           method: 'DELETE',
-          url: deletePath,
+          url: fullUrl,
           status: deleteResponse.status,
           timestamp: new Date(),
         });
       } catch (error: any) {
+        const statusCode = error.response?.status || 0;
+        const errorMsg = statusCode === 404 ? 'Resource not found (may be expected)' : error.message;
+        
         addStep({
           step: 'DELETE',
           method: 'DELETE',
-          url: deletePath,
-          status: error.response?.status || 0,
-          error: error.response?.status === 404 ? 'Resource not found (may be expected)' : error.message,
+          url: fullUrl,
+          status: statusCode,
+          error: errorMsg,
           timestamp: new Date(),
         });
+        
+        // Log detailed error to console (but only if not 404, which is expected)
+        if (statusCode !== 404) {
+          console.error(`  ❌ DELETE failed: ${fullUrl} [${statusCode}] - ${errorMsg}`);
+        }
       }
     } else {
       addStep({
@@ -337,29 +396,36 @@ export async function runEndpointTest(
     
     if (postEndpoint && originalData) {
       const postPayload = stripMetaFields(originalData);
+      const fullUrl = buildFullUrl(postEndpoint.path);
       
       try {
-        const postResponse = await axios.post(`${baseUrl}${postEndpoint.path}`, postPayload, config);
+        const postResponse = await axios.post(fullUrl, postPayload, config);
         newResourceId = postResponse.data?.id || postResponse.data?._id || null;
         
         addStep({
           step: 'POST',
           method: 'POST',
-          url: postEndpoint.path,
+          url: fullUrl,
           status: postResponse.status,
           data: postResponse.data,
           timestamp: new Date(),
         });
       } catch (error: any) {
+        const statusCode = error.response?.status || 0;
+        const errorMsg = error.response?.data?.message || error.message;
+        
         addStep({
           step: 'POST',
           method: 'POST',
-          url: postEndpoint.path,
-          status: error.response?.status || 0,
+          url: fullUrl,
+          status: statusCode,
           data: postPayload,
-          error: error.response?.data?.message || error.message,
+          error: errorMsg,
           timestamp: new Date(),
         });
+        
+        // Log detailed error to console
+        console.error(`  ❌ POST failed: ${fullUrl} [${statusCode}] - ${errorMsg}`);
       }
     } else {
       addStep({
@@ -375,29 +441,37 @@ export async function runEndpointTest(
     let verifyData: any = null;
     
     if (getEndpoint && newResourceId) {
+      // For verification, use the newly created resource ID
       const verifyPath = getEndpoint.path.replace(/\{[^}]+\}/g, newResourceId);
+      const fullUrl = buildFullUrl(verifyPath);
       
       try {
-        const verifyResponse = await axios.get(`${baseUrl}${verifyPath}`, config);
+        const verifyResponse = await axios.get(fullUrl, config);
         verifyData = verifyResponse.data;
         
         addStep({
           step: 'VERIFY',
           method: 'GET',
-          url: verifyPath,
+          url: fullUrl,
           status: verifyResponse.status,
           data: verifyData,
           timestamp: new Date(),
         });
       } catch (error: any) {
+        const statusCode = error.response?.status || 0;
+        const errorMsg = error.message;
+        
         addStep({
           step: 'VERIFY',
           method: 'GET',
-          url: verifyPath,
-          status: error.response?.status || 0,
-          error: error.message,
+          url: fullUrl,
+          status: statusCode,
+          error: errorMsg,
           timestamp: new Date(),
         });
+        
+        // Log detailed error to console
+        console.error(`  ❌ VERIFY failed: ${fullUrl} [${statusCode}] - ${errorMsg}`);
       }
     } else {
       addStep({

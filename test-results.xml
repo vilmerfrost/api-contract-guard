@@ -1,79 +1,648 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="API Contract Regression Tests" tests="5" failures="5" errors="0" skipped="0" time="1.514" timestamp="2026-01-05T14:46:20.786Z">
-    <testcase classname="APIRegressionTest" name="/api/v2" time="0.295">
-      <failure message="Test failed without specific differences" type="AssertionError">
-Endpoint: /api/v2
-Duration: 295ms
+  <testsuite name="API Contract Regression Tests" tests="72" failures="25" errors="0" skipped="0" time="26.537" timestamp="2026-01-07T20:06:00.178Z">
+    <testcase classname="APIRegressionTest" name="/api/v2/get/new/salt" time="0.266">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/get/new/hash" time="0.276">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/get/new/hash
+Duration: 276ms
 
 Test Steps:
-  ✓ AUTH: 200
-  ❌ GET: Invalid URL
-  ❌ DELETE: Invalid URL
-  ❌ POST: No original data to recreate
-  ❌ VERIFY: No new resource ID to verify
-  - COMPARE
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/get/new/hash
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/get/new/hash [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
 
       </failure>
     </testcase>
-    <testcase classname="APIRegressionTest" name="/api/v3" time="0.299">
-      <failure message="Test failed without specific differences" type="AssertionError">
-Endpoint: /api/v3
+    <testcase classname="APIRegressionTest" name="/api/v2/encrypt/string" time="0.265">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/encrypt/string
+Duration: 265ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/encrypt/string
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/encrypt/string [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/settings" time="0.329">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/documentation/notes" time="0.314">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/connection/for/{sourcesystem}" time="0.339">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/connection/for/{sourcesystem}
+Duration: 339ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/connection/for/1
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/connection/for/1 [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/datastore/connection" time="0.319">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/exportlist/for/{sourcesystem}" time="0.313">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/exportlist/for/{sourcesystem}
+Duration: 313ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/exportlist/for/1
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/exportlist/for/1 [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/exportdefinition/for/{sourcesystem}/{exportalias}" time="0.315">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/exportdefinition/for/{sourcesystem}/{exportalias}
+Duration: 315ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/exportdefinition/for/1/Cases
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/exportdefinition/for/1/Cases [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/next/workload/for/{sourcesystem}" time="0.311">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/next/workload/for/{sourcesystem}
+Duration: 311ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/next/workload/for/1
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/next/workload/for/1 [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/workload/history/for/{sourcesystem}" time="0.327">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/workload/inprogress/for/{sourcesystem}" time="0.316">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/systems" time="0.326">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/systems/{system}" time="0.299">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/systems/{system}
 Duration: 299ms
 
 Test Steps:
-  ✓ AUTH: 200
-  ❌ GET: Invalid URL
-  ❌ DELETE: Invalid URL
-  ❌ POST: No original data to recreate
-  ❌ VERIFY: No new resource ID to verify
-  - COMPARE
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/systems/1
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/systems/1 [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
 
       </failure>
     </testcase>
-    <testcase classname="APIRegressionTest" name="/api/v3.1" time="0.304">
-      <failure message="Test failed without specific differences" type="AssertionError">
-Endpoint: /api/v3.1
-Duration: 304ms
+    <testcase classname="APIRegressionTest" name="/api/v2/sourcefiles" time="0.320">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/sourcefiles/{sourcefile}" time="0.316">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/sourcefiles/{sourcefile}/mappings" time="0.335">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/sourcefiles/{sourcefile}/relationships" time="0.318">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/schedule" time="0.469">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/master/schedule/{sourcefile}" time="0.311">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/schedule/{sourcefile}" time="0.333">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/schedule/{sourcefile}/type" time="0.337">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/schedule/{sourcefile}/nextstep" time="0.302">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/schedule/{sourcefile}/nextstep
+Duration: 302ms
 
 Test Steps:
-  ✓ AUTH: 200
-  ❌ GET: Invalid URL
-  ❌ DELETE: Invalid URL
-  ❌ POST: No original data to recreate
-  ❌ VERIFY: No new resource ID to verify
-  - COMPARE
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/schedule/Cases/nextstep
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/schedule/Cases/nextstep [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
 
       </failure>
     </testcase>
-    <testcase classname="APIRegressionTest" name="/api/v3.2" time="0.271">
-      <failure message="Test failed without specific differences" type="AssertionError">
-Endpoint: /api/v3.2
-Duration: 271ms
+    <testcase classname="APIRegressionTest" name="/api/v2/schedule/{sourcefile}/state" time="0.270">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/schedule/{sourcefile}/state
+Duration: 270ms
 
 Test Steps:
-  ✓ AUTH: 200
-  ❌ GET: Invalid URL
-  ❌ DELETE: Invalid URL
-  ❌ POST: No original data to recreate
-  ❌ VERIFY: No new resource ID to verify
-  - COMPARE
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/schedule/Cases/state
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/schedule/Cases/state [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
 
       </failure>
     </testcase>
-    <testcase classname="APIRegressionTest" name="/token" time="0.345">
-      <failure message="Test failed without specific differences" type="AssertionError">
-Endpoint: /token
-Duration: 345ms
+    <testcase classname="APIRegressionTest" name="/api/v2/schedule/{predecessor}/processor" time="0.388">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/model" time="0.323">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/model/{mObject}" time="0.362">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/model/{mObject}/attributes" time="0.339">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/model/{mObject}/attributes/{mAttr}" time="0.309">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/model/{mObject}/attributes/{mAttr}
+Duration: 309ms
 
 Test Steps:
-  ✓ AUTH: 200
-  ❌ DELETE: No DELETE endpoint available
-  ❌ POST: No original data to recreate
-  ❌ VERIFY: No new resource ID to verify
-  - COMPARE
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [404]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/model/Artist/attributes/1
+     Error: Request failed with status code 404
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/model/Artist/attributes/1 [404]
+    └─ Request failed with status code 404
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 404&quot;
 
       </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/model/{mObject}/relations" time="0.318">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/monitor/source/export/log" time="0.310">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/monitor/source/export/failures" time="0.303">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/sourcefiles/{sourcefile}/audits" time="0.311">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/sourcefiles/{sourcefile}/audit/by/{zone}" time="0.264">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/sourcefiles/{sourcefile}/audit/by/{zone}
+Duration: 264ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/sourcefiles/Cases/audit/by/Cases
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/sourcefiles/Cases/audit/by/Cases [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/sourcefiles/{sourcefile}/audits/{key}" time="0.306">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/sourcefiles/{sourcefile}/audits/{key}
+Duration: 306ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/sourcefiles/Cases/audits/Cases
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/sourcefiles/Cases/audits/Cases [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/auditbatch" time="0.270">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/auditbatch
+Duration: 270ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/auditbatch
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/auditbatch [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v2/extraprocessor" time="0.312">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v2/extraprocessor
+Duration: 312ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/extraprocessor
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v2/extraprocessor [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/settings" time="0.400">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/fieldcategorizations" time="0.320">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/ingest/connection" time="0.318">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/ingest/connection
+Duration: 318ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [500]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/ingest/connection
+     Error: Request failed with status code 500
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/ingest/connection [500]
+    └─ Request failed with status code 500
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 500&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/ingest/connection/for/{sourcesystem}" time="0.012">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/ingest/connection/for/{sourcesystem}
+Duration: 12ms
+
+Test Steps:
+  ❌ AUTH: POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+     Error: OAuth2 authentication failed: OAuth2 authentication failed: 502 Bad Gateway - Bad Gateway
+
+Failed Requests:
+  POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token [ERROR]
+    └─ OAuth2 authentication failed: OAuth2 authentication failed: 502 Bad Gateway - Bad Gateway
+
+Differences:
+  1. Path: auth
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;failed&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/ingest/datastore/connection" time="0.267">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/ingest/list/for/{sourcesystem}" time="0.308">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/ingest/list/for/{sourcesystem}
+Duration: 308ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/ingest/list/for/1
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/ingest/list/for/1 [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/ingest/definition/for/{sourcesystem}/{alias}" time="0.328">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/ingest/definition/for/{sourcesystem}/{alias}
+Duration: 328ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/ingest/definition/for/1/Cases
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/ingest/definition/for/1/Cases [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/ingest/next/workload/for/{sourcesystem}" time="0.308">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/ingest/next/workload/for/{sourcesystem}
+Duration: 308ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/ingest/next/workload/for/1
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/ingest/next/workload/for/1 [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/ingest/workload/history/for/{sourcesystem}" time="0.346">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/ingest/workload/inprogress/for/{sourcesystem}" time="0.325">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/sourcefiles" time="0.341">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/sourcefiles/{sourcefile}/mappings/groups" time="0.340">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/sourcefiles/{sourcefile}/mappings" time="0.349">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/sourcefiles/{sourcefile}" time="0.306">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/sourcefiles/{sourcefile}/relationships" time="0.317">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/schedule/tasks" time="3.586">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/schedule/by-time" time="0.274">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/schedule/by-time
+Duration: 274ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/schedule/by-time
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/schedule/by-time [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/model/loadingpattern/{mObject}" time="0.317">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/model" time="0.319">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/model/subjectarea" time="0.309">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/model/{mObject}" time="0.315">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/auditlog" time="0.332">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/audit/publisher/sourcefile" time="0.266">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/audit/publisher/sourcefile
+Duration: 266ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/audit/publisher/sourcefile
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/audit/publisher/sourcefile [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/audit/publisher/table" time="0.329">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/audit/publisher/table
+Duration: 329ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/audit/publisher/table
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/audit/publisher/table [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/audit/publisher/sourcefile/statistics" time="0.673">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/audit/publisher/table/statistics" time="0.584">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3/openlineage/dataset" time="0.269">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3/openlineage/dataset
+Duration: 269ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [422]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/openlineage/dataset
+     Error: Request failed with status code 422
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3/openlineage/dataset [422]
+    └─ Request failed with status code 422
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 422&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.1/ingest/list/for/{sourcesystem}" time="0.314">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3.1/ingest/list/for/{sourcesystem}
+Duration: 314ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3.1/ingest/list/for/1
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3.1/ingest/list/for/1 [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.1/ingest/definition/for/{sourcesystem}/{alias}" time="0.310">
+      <failure message="1 difference found in API contract" type="AssertionError">
+Endpoint: /api/v3.1/ingest/definition/for/{sourcesystem}/{alias}
+Duration: 310ms
+
+Test Steps:
+  ✓ AUTH: 200 - POST https://pdq.swedencentral.cloudapp.azure.com/dev/app/token
+  ❌ GET [400]: GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3.1/ingest/definition/for/1/Cases
+     Error: Request failed with status code 400
+
+Failed Requests:
+  GET https://pdq.swedencentral.cloudapp.azure.com/dev/app/api/v3.1/ingest/definition/for/1/Cases [400]
+    └─ Request failed with status code 400
+
+Differences:
+  1. Path: error
+     Type: changed
+     Expected: &quot;success&quot;
+     Actual: &quot;Request failed with status code 400&quot;
+
+      </failure>
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.1/sourcefiles" time="0.345">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.1/sourcefiles/{sourcefile}" time="0.307">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.1/auditlog" time="0.325">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.2/sourcefiles" time="0.343">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.2/sourcefiles/{sourcefile}" time="0.365">
+    </testcase>
+    <testcase classname="APIRegressionTest" name="/api/v3.2/sourcefiles/{sourcefile}/mappings" time="0.329">
     </testcase>
   </testsuite>
 </testsuites>

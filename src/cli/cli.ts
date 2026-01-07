@@ -31,6 +31,8 @@ program
   .option('--parallel', 'Run tests in parallel', false)
   .option('--max-parallel <n>', 'Maximum parallel tests', '5')
   .option('--mode <mode>', 'Test mode: full (CRUD) or readonly (GET only)', 'full')
+  .option('--use-real-data', 'Discover and use real IDs from API instead of placeholder "1"', false)
+  .option('--use-hierarchical', 'Test parent-child API relationships (loop through all parent resources)', false)
   .action(async (options) => {
     try {
       console.log('🚀 API Contract Guard - Starting Tests');
@@ -62,7 +64,9 @@ program
         auth,
         mode: options.mode,
         parallel: options.parallel,
-        maxParallel: parseInt(options.maxParallel)
+        maxParallel: parseInt(options.maxParallel),
+        useRealData: options.useRealData,
+        useHierarchical: options.useHierarchical
       });
       
       const result = await orchestrator.runAll();
@@ -131,6 +135,7 @@ program
   .description('List all endpoints from Swagger (excluding blacklisted)')
   .requiredOption('--swagger-url <url>', 'Swagger/OpenAPI JSON URL')
   .option('--include-blacklisted', 'Include blacklisted endpoints in output', false)
+  .option('--show-full-urls', 'Show full URLs with base URL', false)
   .action(async (options) => {
     try {
       console.log('📋 Fetching endpoints from Swagger...');
@@ -152,11 +157,22 @@ program
         if (endpoints.length === 0) return;
         
         console.log(`\n📁 ${group.resource}`);
-        console.log('─'.repeat(50));
+        console.log('─'.repeat(70));
         
         endpoints.forEach(endpoint => {
           const color = getMethodColor(endpoint.method);
-          console.log(`  ${color} ${endpoint.method.padEnd(6)} ${endpoint.path}`);
+          const testPath = endpoint.path.replace(/\{[^}]+\}/g, '1');
+          const fullUrl = `${baseUrl}${testPath}`;
+          
+          if (options.showFullUrls) {
+            console.log(`  ${color} ${endpoint.method.padEnd(6)} ${fullUrl}`);
+            if (endpoint.path !== testPath) {
+              console.log(`      Path: ${endpoint.path}`);
+            }
+          } else {
+            console.log(`  ${color} ${endpoint.method.padEnd(6)} ${endpoint.path}`);
+          }
+          
           if (endpoint.summary) {
             console.log(`         ${endpoint.summary}`);
           }
