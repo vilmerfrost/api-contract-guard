@@ -17,6 +17,11 @@ export interface TestDataCache {
   modelObjects: Array<{ name: string; id?: string }>;
   schedules: Array<{ id: string; name?: string }>;
   connections: Array<{ id: string; name?: string }>;
+  attributes: Array<{ id: string; name?: string }>;      // Model object attributes
+  auditZones: Array<{ id: string; name?: string }>;      // Audit zones
+  auditKeys: Array<{ id: string; name?: string }>;       // Audit keys
+  exportAliases: Array<{ id: string; name?: string }>;   // Export aliases (v2)
+  ingestAliases: Array<{ id: string; name?: string }>;   // Ingest aliases (v3)
   [key: string]: any[];
 }
 
@@ -63,6 +68,12 @@ const PARAMETER_MAPPING: Record<string, string> = {
   'modelobject': 'modelObjects',
   'object': 'modelObjects',
   
+  // Model attribute parameters - maps to attributes cache
+  'mAttr': 'attributes',
+  'mattr': 'attributes',
+  'attributeid': 'attributes',
+  'attr': 'attributes',
+  
   // Schedule parameters - schedules often use sourcefile as ID
   'schedule': 'schedules',
   'scheduleid': 'schedules',
@@ -72,13 +83,14 @@ const PARAMETER_MAPPING: Record<string, string> = {
   'connection': 'connections',
   'connectionid': 'connections',
   
-  // Ingest/export parameters
-  'alias': 'sourcefiles', // export/ingest alias often relates to sourcefile
-  'exportalias': 'sourcefiles',
+  // Ingest/export alias parameters - PRIORITIZE discovered aliases over sourcefiles!
+  'alias': 'ingestAliases',       // Try ingest aliases first
+  'exportalias': 'exportAliases', // Export aliases
   
-  // Zone parameters (for audit endpoints)
-  'zone': 'sourcefiles', // zone in audit paths
-  'key': 'sourcefiles', // audit key
+  // Audit zone/key parameters - maps to auditZones/auditKeys cache
+  'zone': 'auditZones',
+  'key': 'auditKeys',
+  'auditkey': 'auditKeys',
   
   // Generic ID - try sourcefiles first
   'id': 'sourcefiles',
@@ -103,7 +115,12 @@ export async function discoverTestData(
     systems: [],
     modelObjects: [],
     schedules: [],
-    connections: []
+    connections: [],
+    attributes: [],
+    auditZones: [],
+    auditKeys: [],
+    exportAliases: [],
+    ingestAliases: []
   };
   
   // Build auth headers
@@ -292,14 +309,156 @@ export async function discoverTestData(
     }
   }
   
+  // Discover audit zones and keys (Hour 3 fix)
+  if (cache.sourcefiles.length > 0) {
+    console.log('  🔍 Fetching audit zones and keys...');
+    const firstSourcefile = cache.sourcefiles[0];
+    
+    try {
+      const auditsResponse = await axios.get(
+        `${baseUrl}/api/v2/sourcefiles/${firstSourcefile.id}/audits`,
+        config
+      );
+
+      if (auditsResponse.data) {
+        const data = auditsResponse.data;
+        let items: any[] = [];
+
+        if (Array.isArray(data)) {
+          items = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          items = data.data;
+        }
+
+        if (items.length > 0) {
+          // Extract zones (try Zone, zone, zoneId fields)
+          const zones = new Set<string>();
+          const keys = new Set<string>();
+          
+          items.forEach(audit => {
+            const zone = audit.Zone || audit.zone || audit.zoneId || audit.AuditZone;
+            const key = audit.Key || audit.key || audit.auditKey || audit.id || audit.AuditKey;
+            
+            if (zone) zones.add(String(zone));
+            if (key) keys.add(String(key));
+          });
+
+          if (zones.size > 0) {
+            cache.auditZones = Array.from(zones).slice(0, 10).map(z => ({ id: z, name: z }));
+            console.log(`    ✅ Found ${cache.auditZones.length} audit zones`);
+            cache.auditZones.slice(0, 3).forEach(item => {
+              console.log(`       • Zone: ${item.id}`);
+            });
+          }
+          
+          if (keys.size > 0) {
+            cache.auditKeys = Array.from(keys).slice(0, 10).map(k => ({ id: k, name: k }));
+            console.log(`    ✅ Found ${cache.auditKeys.length} audit keys`);
+            cache.auditKeys.slice(0, 3).forEach(item => {
+              console.log(`       • Key: ${item.id}`);
+            });
+          }
+          
+          if (zones.size === 0 && keys.size === 0) {
+            console.log(`    ⚠️  No audit zones or keys found in response`);
+          }
+        } else {
+          console.log(`    ⚠️  No audit data found`);
+        }
+      }
+    } catch (error: any) {
+      const status = error.response?.status || 'ERROR';
+      console.log(`    ⚠️  Could not fetch audits [${status}]`);
+    }
+  }
+  
   // Discover systems
   // API returns 'system' or 'sourcesystem' as the ID field
-  await safeFetch(`${baseUrl}/api/v2/systems`, 'systems', 'system', 'name');
+  const systemsFound = await safeFetch(`${baseUrl}/api/v2/systems`, 'systems', 'system', 'name');
+  
+  // If no systems found, try to extract from schedules
+  if (!systemsFound || cache.systems.length === 0) {
+    console.log('  🔄 Trying to discover systems from schedules...');
+    const schedulesResponse = await safeFetch(`${baseUrl}/api/v2/schedule`, 'schedules', 'SourceFile', 'SourceFile');
+    
+    if (schedulesResponse && cache.schedules.length > 0) {
+      // Extract unique system IDs from schedules
+      const systemIds = new Set<string>();
+      
+      for (const schedule of cache.schedules) {
+        // Try different field names for system
+        const systemId = (schedule as any).System || 
+                        (schedule as any).SystemId || 
+                        (schedule as any).system || 
+                        (schedule as any).systemId;
+        
+        if (systemId && typeof systemId === 'string') {
+          systemIds.add(systemId);
+        }
+      }
+      
+      if (systemIds.size > 0) {
+        cache.systems = Array.from(systemIds).slice(0, 10).map(id => ({ id, name: id }));
+        console.log(`    ✅ Got ${cache.systems.length} systems from schedules!`);
+        
+        // Log first 3 examples
+        cache.systems.slice(0, 3).forEach(item => {
+          console.log(`       • ID: ${item.id} (${item.name})`);
+        });
+      } else {
+        console.log('    ⚠️  No system IDs found in schedules');
+      }
+    }
+  }
   
   // Discover model objects
   // DEBUG showed: data.data[0] keys: object, alias, description...
   // The ID field is 'object', not 'name'!
   await safeFetch(`${baseUrl}/api/v2/model`, 'modelObjects', 'object', 'alias');
+  
+  // Discover attributes for model objects (Hour 2 fix)
+  if (cache.modelObjects.length > 0) {
+    console.log('  🔍 Fetching attributes for model objects...');
+    const firstModel = cache.modelObjects[0];
+    
+    try {
+      const attributesResponse = await axios.get(
+        `${baseUrl}/api/v2/model/${firstModel.id || firstModel.name}/attributes`,
+        config
+      );
+
+      if (attributesResponse.data) {
+        const data = attributesResponse.data;
+        let items: any[] = [];
+
+        if (Array.isArray(data)) {
+          items = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          items = data.data;
+        } else if (data.items && Array.isArray(data.items)) {
+          items = data.items;
+        }
+
+        if (items.length > 0) {
+          cache.attributes = items.slice(0, 10).map(attr => {
+            const id = attr.attribute || attr.attributeId || attr.id || attr.name || attr.Attribute;
+            const name = attr.name || attr.attributeName || attr.Attribute || id;
+            return { id: String(id), name: String(name) };
+          }).filter(attr => attr.id);
+
+          console.log(`    ✅ Found ${cache.attributes.length} attributes`);
+          cache.attributes.slice(0, 3).forEach(item => {
+            console.log(`       • ID: ${item.id} (${item.name})`);
+          });
+        } else {
+          console.log(`    ⚠️  No attributes found`);
+        }
+      }
+    } catch (error: any) {
+      const status = error.response?.status || 'ERROR';
+      console.log(`    ⚠️  Could not fetch attributes [${status}]`);
+    }
+  }
   
   // Discover schedules
   // DEBUG showed: First item keys: SourceFile, CurrentExecutionDttm...
@@ -309,14 +468,109 @@ export async function discoverTestData(
   // Discover connections
   await safeFetch(`${baseUrl}/api/v2/datastore/connection`, 'connections', 'id', 'name');
   
+  // Discover export aliases (Hour 4 fix)
+  if (cache.systems.length > 0) {
+    console.log('  🔍 Fetching export aliases...');
+    const firstSystem = cache.systems[0];
+    
+    try {
+      const exportsResponse = await axios.get(
+        `${baseUrl}/api/v2/exportlist/for/${firstSystem.id}`,
+        config
+      );
+
+      if (exportsResponse.data) {
+        const data = exportsResponse.data;
+        let items: any[] = [];
+
+        if (Array.isArray(data)) {
+          items = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          items = data.data;
+        }
+
+        if (items.length > 0) {
+          cache.exportAliases = items.slice(0, 10).map(exp => {
+            const id = exp.alias || exp.exportAlias || exp.Alias || exp.name || exp.ExportAlias;
+            return { id: String(id), name: String(id) };
+          }).filter(a => a.id && a.id !== 'undefined');
+
+          if (cache.exportAliases.length > 0) {
+            console.log(`    ✅ Found ${cache.exportAliases.length} export aliases`);
+            cache.exportAliases.slice(0, 3).forEach(item => {
+              console.log(`       • Alias: ${item.id}`);
+            });
+          } else {
+            console.log(`    ⚠️  No export aliases found`);
+          }
+        } else {
+          console.log(`    ⚠️  No export list found`);
+        }
+      }
+    } catch (error: any) {
+      const status = error.response?.status || 'ERROR';
+      console.log(`    ⚠️  Could not fetch export aliases [${status}]`);
+    }
+  }
+
+  // Discover ingest aliases (v3) (Hour 4 fix)
+  if (cache.systems.length > 0) {
+    console.log('  🔍 Fetching ingest aliases...');
+    const firstSystem = cache.systems[0];
+    
+    try {
+      const ingestsResponse = await axios.get(
+        `${baseUrl}/api/v3/ingest/list/for/${firstSystem.id}`,
+        config
+      );
+
+      if (ingestsResponse.data) {
+        const data = ingestsResponse.data;
+        let items: any[] = [];
+
+        if (Array.isArray(data)) {
+          items = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          items = data.data;
+        }
+
+        if (items.length > 0) {
+          cache.ingestAliases = items.slice(0, 10).map(ing => {
+            const id = ing.alias || ing.ingestAlias || ing.Alias || ing.name || ing.IngestAlias;
+            return { id: String(id), name: String(id) };
+          }).filter(a => a.id && a.id !== 'undefined');
+
+          if (cache.ingestAliases.length > 0) {
+            console.log(`    ✅ Found ${cache.ingestAliases.length} ingest aliases`);
+            cache.ingestAliases.slice(0, 3).forEach(item => {
+              console.log(`       • Alias: ${item.id}`);
+            });
+          } else {
+            console.log(`    ⚠️  No ingest aliases found`);
+          }
+        } else {
+          console.log(`    ⚠️  No ingest list found`);
+        }
+      }
+    } catch (error: any) {
+      const status = error.response?.status || 'ERROR';
+      console.log(`    ⚠️  Could not fetch ingest aliases [${status}]`);
+    }
+  }
+  
   console.log('');
   console.log('═══════════════════════════════════════');
   console.log('DISCOVERY SUMMARY:');
   console.log(`  Sourcefiles: ${cache.sourcefiles.length}`);
   console.log(`  Systems: ${cache.systems.length}`);
   console.log(`  Model Objects: ${cache.modelObjects.length}`);
+  console.log(`  Attributes: ${cache.attributes.length}`);
   console.log(`  Schedules: ${cache.schedules.length}`);
   console.log(`  Connections: ${cache.connections.length}`);
+  console.log(`  Audit Zones: ${cache.auditZones.length}`);
+  console.log(`  Audit Keys: ${cache.auditKeys.length}`);
+  console.log(`  Export Aliases: ${cache.exportAliases.length}`);
+  console.log(`  Ingest Aliases: ${cache.ingestAliases.length}`);
   console.log('═══════════════════════════════════════');
   console.log('');
   
@@ -538,6 +792,10 @@ export function getParameterValue(paramName: string, cache: TestDataCache): stri
 export function hasDiscoveredData(cache: TestDataCache): boolean {
   return cache.sourcefiles.length > 0 || 
          cache.systems.length > 0 || 
-         cache.modelObjects.length > 0;
+         cache.modelObjects.length > 0 ||
+         cache.attributes.length > 0 ||
+         cache.auditZones.length > 0 ||
+         cache.exportAliases.length > 0 ||
+         cache.ingestAliases.length > 0;
 }
 
