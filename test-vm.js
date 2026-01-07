@@ -1,1 +1,0 @@
-﻿const https = require('https'); const url = process.argv[2]; https.get(url, (res) => { console.log('Status:', res.statusCode); if (res.statusCode >= 200 && res.statusCode < 400) { process.exit(0); } else { process.exit(1); } }).on('error', (e) => { console.error('Error:', e.message); process.exit(1); }).setTimeout(10000, function() { console.error('Timeout'); this.abort(); });
