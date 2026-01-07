@@ -32,3 +32,41 @@ junit.xml
 *.njsproj
 *.sln
 *.sw?
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Test output files (explicit patterns)
+test-results.xml
+test-results-*.xml
+test-quick.xml
+junit-hierarchical.xml
+full-output.txt
+*-output.txt
+
+# Test and debug scripts
+test-*.js
+test-*.mjs
+test-*.ts
+test-*.ps1
+test-*.sh
+manual-test.*
+quick-test.*
+test-without-vm.sh
+
+# Sensitive files - CRITICAL!
+password.txt
+*.secret
+*.key
+*.pem
+*.p12
+secrets.txt
+
+# Temporary documentation and fix scripts
+APPLY-*.ps1
+BUG-FIXES.md
+*FIX_APPLIED.md
+STATUS.md
+IMPLEMENTATION-SUMMARY.md
