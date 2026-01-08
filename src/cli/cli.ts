@@ -58,6 +58,13 @@ program
         throw new Error('Username and password are required (via flags or env vars API_USERNAME/API_PASSWORD)');
       }
       
+      // Validate mutually exclusive options
+      if (options.useRealData && options.useHierarchical) {
+        console.warn('⚠️  Note: --use-hierarchical includes its own data discovery.');
+        console.warn('   --use-real-data flag will be ignored in hierarchical mode.');
+        console.log('');
+      }
+      
       // Run tests
       const orchestrator = new TestOrchestrator({
         swaggerUrl: options.swaggerUrl,

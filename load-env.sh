@@ -4,6 +4,7 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # This script loads .env.local and validates all required variables are set
 # Usage: source load-env.sh
+# Compatible with both bash and zsh
 
 set -a  # Automatically export all variables
 
@@ -34,10 +35,12 @@ echo ""
 echo -e "${BLUE}🔍 Validating environment variables...${NC}"
 echo ""
 
-# Validation function
+# Validation function (compatible with both bash and zsh)
 validate_var() {
     local var_name=$1
-    local var_value="${!var_name}"
+    # Use eval for indirect variable expansion (works in both bash and zsh)
+    local var_value
+    eval "var_value=\$$var_name"
     local is_required=$2
     local description=$3
     
