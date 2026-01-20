@@ -208,8 +208,11 @@ export async function discoverTestData(
       if (Array.isArray(data)) {
         items = data;
       } else if (typeof data === 'object' && data !== null) {
-        // Check for common wrapper patterns (PRIORITIZE data wrapper)
-        if (data.data && Array.isArray(data.data)) {
+        // Check for common wrapper patterns
+        // IMPORTANT: Check for nested { data: { items: [...] } } first (like /api/v2/systems)
+        if (data.data && typeof data.data === 'object' && data.data.items && Array.isArray(data.data.items)) {
+          items = data.data.items;
+        } else if (data.data && Array.isArray(data.data)) {
           items = data.data;
         } else if (data.items && Array.isArray(data.items)) {
           items = data.items;
@@ -218,7 +221,7 @@ export async function discoverTestData(
         } else {
           // For model objects, keys might be the resource names
           // But skip generic wrapper keys like 'data', 'items', 'results'
-          const wrapperKeys = ['data', 'items', 'results', 'response', 'payload'];
+          const wrapperKeys = ['data', 'items', 'results', 'response', 'payload', '_links'];
           items = Object.keys(data)
             .filter(key => !wrapperKeys.includes(key.toLowerCase()))
             .map(key => ({ name: key, id: key }));
@@ -309,9 +312,10 @@ export async function discoverTestData(
     }
   }
   
-  // Discover audit zones and keys (Hour 3 fix)
+  // Discover audit keys from audits endpoint
+  // Response format: { data: { items: [...] } } with SrcFileKey field
   if (cache.sourcefiles.length > 0) {
-    console.log('  🔍 Fetching audit zones and keys...');
+    console.log('  🔍 Fetching audit keys...');
     const firstSourcefile = cache.sourcefiles[0];
     
     try {
@@ -324,32 +328,25 @@ export async function discoverTestData(
         const data = auditsResponse.data;
         let items: any[] = [];
 
-        if (Array.isArray(data)) {
+        // Handle { data: { items: [...] } } structure
+        if (data.data && data.data.items && Array.isArray(data.data.items)) {
+          items = data.data.items;
+        } else if (data.items && Array.isArray(data.items)) {
+          items = data.items;
+        } else if (Array.isArray(data)) {
           items = data;
         } else if (data.data && Array.isArray(data.data)) {
           items = data.data;
         }
 
         if (items.length > 0) {
-          // Extract zones (try Zone, zone, zoneId fields)
-          const zones = new Set<string>();
+          // Extract keys - the field is SrcFileKey (e.g., F-8fab8ca6-a2e1-4252-...)
           const keys = new Set<string>();
           
           items.forEach(audit => {
-            const zone = audit.Zone || audit.zone || audit.zoneId || audit.AuditZone;
-            const key = audit.Key || audit.key || audit.auditKey || audit.id || audit.AuditKey;
-            
-            if (zone) zones.add(String(zone));
+            const key = audit.SrcFileKey || audit.srcFileKey || audit.Key || audit.key || audit.auditKey || audit.id;
             if (key) keys.add(String(key));
           });
-
-          if (zones.size > 0) {
-            cache.auditZones = Array.from(zones).slice(0, 10).map(z => ({ id: z, name: z }));
-            console.log(`    ✅ Found ${cache.auditZones.length} audit zones`);
-            cache.auditZones.slice(0, 3).forEach(item => {
-              console.log(`       • Zone: ${item.id}`);
-            });
-          }
           
           if (keys.size > 0) {
             cache.auditKeys = Array.from(keys).slice(0, 10).map(k => ({ id: k, name: k }));
@@ -357,57 +354,121 @@ export async function discoverTestData(
             cache.auditKeys.slice(0, 3).forEach(item => {
               console.log(`       • Key: ${item.id}`);
             });
-          }
-          
-          if (zones.size === 0 && keys.size === 0) {
-            console.log(`    ⚠️  No audit zones or keys found in response`);
+          } else {
+            console.log(`    ⚠️  No audit keys found in response`);
           }
         } else {
-          console.log(`    ⚠️  No audit data found`);
+          console.log(`    ⚠️  No audit items found`);
         }
       }
     } catch (error: any) {
       const status = error.response?.status || 'ERROR';
       console.log(`    ⚠️  Could not fetch audits [${status}]`);
     }
+    
+    // Add common audit zones (these are data lake zones)
+    cache.auditZones = [
+      { id: 'landing', name: 'Landing Zone' },
+      { id: 'raw', name: 'Raw Zone' },
+      { id: 'trusted', name: 'Trusted Zone' },
+      { id: 'profile', name: 'Profile Zone' }
+    ];
+    console.log(`    ✅ Added ${cache.auditZones.length} common audit zones`);
   }
   
   // Discover systems
-  // API returns 'system' or 'sourcesystem' as the ID field
-  const systemsFound = await safeFetch(`${baseUrl}/api/v2/systems`, 'systems', 'system', 'name');
+  // First try /api/v2/systems endpoint (response format: { data: { items: [...] } })
+  let systemsFound = await safeFetch(`${baseUrl}/api/v2/systems`, 'systems', 'system', 'description');
   
-  // If no systems found, try to extract from schedules
-  if (!systemsFound || cache.systems.length === 0) {
-    console.log('  🔄 Trying to discover systems from schedules...');
-    const schedulesResponse = await safeFetch(`${baseUrl}/api/v2/schedule`, 'schedules', 'SourceFile', 'SourceFile');
+  // If systems found, try to find one that has a working connection
+  // Some systems return 400 on connection endpoints due to misconfiguration
+  if (systemsFound && cache.systems.length > 0) {
+    console.log('  🔍 Validating system connections...');
     
-    if (schedulesResponse && cache.schedules.length > 0) {
-      // Extract unique system IDs from schedules
+    // Sort systems to put known working ones first (Coincap is known to work)
+    const knownGoodSystems = ['Coincap', 'Casehandler'];
+    cache.systems.sort((a, b) => {
+      const aIndex = knownGoodSystems.indexOf(a.id);
+      const bIndex = knownGoodSystems.indexOf(b.id);
+      if (aIndex >= 0 && bIndex >= 0) return aIndex - bIndex;
+      if (aIndex >= 0) return -1;
+      if (bIndex >= 0) return 1;
+      return 0;
+    });
+    
+    // Test each system to find one with a working connection
+    let workingSystem: string | null = null;
+    for (const system of cache.systems.slice(0, 5)) {
+      try {
+        const connectionResponse = await axios.get(
+          `${baseUrl}/api/v2/connection/for/${system.id}`,
+          config
+        );
+        if (connectionResponse.status === 200) {
+          workingSystem = system.id;
+          console.log(`    ✅ Found working system: ${system.id}`);
+          break;
+        }
+      } catch (error: any) {
+        // This system doesn't have a working connection, try next
+      }
+    }
+    
+    // Move the working system to the front
+    if (workingSystem) {
+      const workingIdx = cache.systems.findIndex(s => s.id === workingSystem);
+      if (workingIdx > 0) {
+        const [working] = cache.systems.splice(workingIdx, 1);
+        cache.systems.unshift(working);
+      }
+    } else {
+      console.log('    ⚠️  No system with working connection found');
+    }
+  }
+  
+  // If no systems found from /api/v2/systems, try fetching individual sourcefiles
+  if (!systemsFound || cache.systems.length === 0) {
+    if (cache.sourcefiles.length > 0) {
+      console.log('  🔄 Discovering systems from individual sourcefiles...');
       const systemIds = new Set<string>();
       
-      for (const schedule of cache.schedules) {
-        // Try different field names for system
-        const systemId = (schedule as any).System || 
-                        (schedule as any).SystemId || 
-                        (schedule as any).system || 
-                        (schedule as any).systemId;
-        
-        if (systemId && typeof systemId === 'string') {
-          systemIds.add(systemId);
+      // Fetch details for up to 5 sourcefiles to find unique systems
+      const sourcefilesToCheck = cache.sourcefiles.slice(0, 5);
+      
+      for (const sourcefile of sourcefilesToCheck) {
+        try {
+          const response = await axios.get(
+            `${baseUrl}/api/v2/sourcefiles/${sourcefile.id}`,
+            config
+          );
+          
+          // Response format: { data: { sourceFilename: "...", system: "Casehandler", ... } }
+          const systemName = response.data?.data?.system || 
+                            response.data?.system ||
+                            response.data?.data?.sourcesystem ||
+                            response.data?.sourcesystem;
+          
+          if (systemName && typeof systemName === 'string') {
+            systemIds.add(systemName);
+            // Store system info on the sourcefile for reference
+            (sourcefile as any).system = systemName;
+          }
+        } catch (error: any) {
+          // Skip this sourcefile if we can't fetch it
         }
       }
       
       if (systemIds.size > 0) {
-        cache.systems = Array.from(systemIds).slice(0, 10).map(id => ({ id, name: id }));
-        console.log(`    ✅ Got ${cache.systems.length} systems from schedules!`);
-        
-        // Log first 3 examples
+        cache.systems = Array.from(systemIds).map(id => ({ id, name: id }));
+        console.log(`    ✅ Found ${cache.systems.length} systems from sourcefiles!`);
         cache.systems.slice(0, 3).forEach(item => {
-          console.log(`       • ID: ${item.id} (${item.name})`);
+          console.log(`       • System: ${item.id}`);
         });
       } else {
-        console.log('    ⚠️  No system IDs found in schedules');
+        console.log('    ⚠️  No systems found in sourcefile details');
       }
+    } else {
+      console.log('    ⚠️  No sourcefiles to extract systems from');
     }
   }
   

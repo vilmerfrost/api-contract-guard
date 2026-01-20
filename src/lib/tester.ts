@@ -3,6 +3,7 @@ import { TestStep, TestResult, EndpointGroup, AuthConfig } from '@/types';
 import { deepCompare, stripMetaFields } from './comparator.js';
 import { createAxiosInstance } from './utils.js';
 import { substitutePathParameters } from './data-discovery.js';
+import { getQueryParams } from './query-params.js';
 
 const axios = createAxiosInstance();
 
@@ -201,8 +202,14 @@ export async function runEndpointTest(
       const testPath = substitutePath(testEndpoint.path);
       const fullUrl = buildFullUrl(testPath);
       
+      // Get query params for this endpoint
+      const queryParams = getQueryParams(testEndpoint.path);
+      
       try {
-        const response = await axios.get(fullUrl, config);
+        const response = await axios.get(fullUrl, { 
+          ...config, 
+          params: Object.keys(queryParams).length > 0 ? queryParams : undefined 
+        });
         
         addStep({
           step: 'GET',
@@ -253,9 +260,13 @@ export async function runEndpointTest(
     if (getEndpoint) {
       const getPath = substitutePath(getEndpoint.path);
       const fullUrl = buildFullUrl(getPath);
+      const queryParams = getQueryParams(getEndpoint.path);
       
       try {
-        getResponse = await axios.get(fullUrl, config);
+        getResponse = await axios.get(fullUrl, { 
+          ...config, 
+          params: Object.keys(queryParams).length > 0 ? queryParams : undefined 
+        });
         addStep({
           step: 'GET',
           method: 'GET',
@@ -271,7 +282,11 @@ export async function runEndpointTest(
         if (statusCode === 404 && getListEndpoint) {
           // Try getting list
           const listUrl = buildFullUrl(getListEndpoint.path);
-          const listResponse = await axios.get(listUrl, config);
+          const listQueryParams = getQueryParams(getListEndpoint.path);
+          const listResponse = await axios.get(listUrl, { 
+            ...config, 
+            params: Object.keys(listQueryParams).length > 0 ? listQueryParams : undefined 
+          });
           const items = Array.isArray(listResponse.data) ? listResponse.data : listResponse.data?.items || listResponse.data?.data || [];
           
           if (items.length > 0) {
@@ -313,9 +328,13 @@ export async function runEndpointTest(
       }
     } else if (getListEndpoint) {
       const listUrl = buildFullUrl(getListEndpoint.path);
+      const listQueryParams = getQueryParams(getListEndpoint.path);
       
       try {
-        const listResponse = await axios.get(listUrl, config);
+        const listResponse = await axios.get(listUrl, { 
+          ...config, 
+          params: Object.keys(listQueryParams).length > 0 ? listQueryParams : undefined 
+        });
         const items = Array.isArray(listResponse.data) ? listResponse.data : listResponse.data?.items || listResponse.data?.data || [];
         
         if (items.length > 0) {
@@ -444,9 +463,13 @@ export async function runEndpointTest(
       // For verification, use the newly created resource ID
       const verifyPath = getEndpoint.path.replace(/\{[^}]+\}/g, newResourceId);
       const fullUrl = buildFullUrl(verifyPath);
+      const verifyQueryParams = getQueryParams(getEndpoint.path);
       
       try {
-        const verifyResponse = await axios.get(fullUrl, config);
+        const verifyResponse = await axios.get(fullUrl, { 
+          ...config, 
+          params: Object.keys(verifyQueryParams).length > 0 ? verifyQueryParams : undefined 
+        });
         verifyData = verifyResponse.data;
         
         addStep({

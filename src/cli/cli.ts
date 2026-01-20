@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { AzureVMStarter } from './azure-starter.js';
 import { TestOrchestrator } from './orchestrator.js';
 import { writeJUnitReport } from './junit-reporter.js';
 import { parseSwaggerUrl } from '../lib/swagger.js';
 import { filterBlacklistedEndpoints } from './blacklist.js';
-import { AuthConfig } from '../types/index.js';
+import { CoverageAnalyzer } from './coverage-analyzer.js';
+import { AuthConfig, Endpoint } from '../types/index.js';
 
 const program = new Command();
 
@@ -208,6 +211,184 @@ program
       process.exit(1);
     }
   });
+
+/**
+ * Get credentials command - Output export commands for env vars
+ * Usage: eval "$(node dist/cli/cli.js get)"
+ */
+program
+  .command('get')
+  .description('Output export commands for environment variables from .env.local')
+  .option('--file <path>', 'Path to credentials file', '.env.local')
+  .action((options) => {
+    const envFile = options.file || '.env.local';
+    const envPath = join(process.cwd(), envFile);
+    
+    if (!existsSync(envPath)) {
+      console.error(`# ❌ File not found: ${envPath}`);
+      console.error('# Create .env.local with:');
+      console.error('#   API_USERNAME=your-username');
+      console.error('#   API_PASSWORD=your-password');
+      console.error('#   SWAGGER_URL=https://...');
+      console.error('#   TOKEN_URL=https://...');
+      process.exit(1);
+    }
+    
+    try {
+      const content = readFileSync(envPath, 'utf-8');
+      const lines = content.split('\n');
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        
+        const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+        if (match) {
+          const [, key, value] = match;
+          // Remove surrounding quotes if present
+          const cleanValue = value.replace(/^["']|["']$/g, '');
+          console.log(`export ${key}="${cleanValue}"`);
+        }
+      }
+    } catch (error: any) {
+      console.error(`# ❌ Error reading file: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+/**
+ * Coverage command - Generate API coverage report
+ */
+program
+  .command('coverage')
+  .description('Generate comprehensive API coverage report')
+  .requiredOption('--swagger-url <url>', 'Swagger/OpenAPI JSON URL')
+  .option('--test-results <file>', 'JUnit XML test results file to analyze')
+  .option('--format <format>', 'Output format: console, markdown, or both', 'both')
+  .action(async (options) => {
+    try {
+      console.log('🔍 Generating API Coverage Report...');
+      console.log('');
+      
+      // Parse Swagger
+      console.log(`📋 Parsing Swagger from: ${options.swaggerUrl}`);
+      const { groups } = await parseSwaggerUrl(options.swaggerUrl);
+      
+      // Flatten all endpoints
+      const allEndpoints: Endpoint[] = [];
+      for (const group of groups) {
+        allEndpoints.push(...group.endpoints);
+      }
+      
+      console.log(`✅ Found ${allEndpoints.length} total endpoints`);
+      console.log('');
+      
+      // Create analyzer
+      const analyzer = new CoverageAnalyzer(allEndpoints);
+      
+      // Load test results if provided
+      if (options.testResults && existsSync(options.testResults)) {
+        console.log(`📊 Loading test results from: ${options.testResults}`);
+        
+        try {
+          const xmlContent = readFileSync(options.testResults, 'utf-8');
+          const testResults = parseJUnitXML(xmlContent);
+          
+          testResults.forEach(result => {
+            analyzer.addTestResult(result.path, result.method, result.passed);
+          });
+          
+          console.log(`✅ Loaded ${testResults.length} test results`);
+          console.log('');
+        } catch (error: any) {
+          console.log(`⚠️  Could not parse test results: ${error.message}`);
+          console.log('');
+        }
+      } else {
+        console.log('ℹ️  No test results provided - showing endpoint analysis only');
+        console.log('');
+      }
+      
+      // Generate report
+      const stats = analyzer.analyze();
+      
+      // Output to console
+      if (options.format === 'console' || options.format === 'both') {
+        const consoleReport = analyzer.generateReport(stats);
+        console.log(consoleReport);
+      }
+      
+      // Output to markdown
+      if (options.format === 'markdown' || options.format === 'both') {
+        const markdownReport = analyzer.exportToMarkdown(stats);
+        const outputPath = join(process.cwd(), 'api-coverage-report.md');
+        writeFileSync(outputPath, markdownReport, 'utf-8');
+        console.log('');
+        console.log(`📄 Markdown report saved to: ${outputPath}`);
+      }
+      
+      // Summary
+      console.log('');
+      console.log('📈 SUMMARY:');
+      const getPercent = stats.byMethod.GET > 0 ? Math.round((stats.getResults.passing / stats.byMethod.GET) * 100) : 0;
+      console.log(`   Total Endpoints: ${stats.total}`);
+      console.log(`   GET Coverage: ${stats.getResults.passing}/${stats.byMethod.GET} (${getPercent}%)`);
+      console.log(`   POST Endpoints: ${stats.byMethod.POST} (require request bodies)`);
+      console.log(`   DELETE Endpoints: ${stats.byMethod.DELETE} (${stats.deleteResults.working} working)`);
+      console.log('');
+      
+      process.exit(0);
+      
+    } catch (error: any) {
+      console.error('');
+      console.error('❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+/**
+ * Helper: Parse JUnit XML to extract test results
+ */
+function parseJUnitXML(xmlContent: string): Array<{ path: string; method: string; passed: boolean }> {
+  const results: Array<{ path: string; method: string; passed: boolean }> = [];
+  
+  // Simple XML parsing - look for testcase elements
+  const testcaseRegex = /<testcase[^>]*name="([^"]*)"[^>]*>/g;
+  
+  let match;
+  while ((match = testcaseRegex.exec(xmlContent)) !== null) {
+    const testName = match[1];
+    const testcaseStart = match.index;
+    
+    // Find the end of this testcase
+    const testcaseEnd = xmlContent.indexOf('</testcase>', testcaseStart);
+    if (testcaseEnd === -1) continue;
+    
+    const testcaseContent = xmlContent.substring(testcaseStart, testcaseEnd);
+    
+    // Check if it has a failure
+    const hasFailed = testcaseContent.includes('<failure');
+    
+    // Parse test name (format: "METHOD /path" or just path)
+    const methodMatch = testName.match(/^(GET|POST|PUT|DELETE|PATCH)\s+(.+)$/);
+    if (methodMatch) {
+      results.push({
+        method: methodMatch[1],
+        path: methodMatch[2],
+        passed: !hasFailed
+      });
+    } else {
+      // Assume GET if no method prefix
+      results.push({
+        method: 'GET',
+        path: testName,
+        passed: !hasFailed
+      });
+    }
+  }
+  
+  return results;
+}
 
 /**
  * Helper: Get color/symbol for HTTP method
