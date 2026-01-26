@@ -27,13 +27,44 @@ export interface EndpointGroup {
 }
 
 export interface TestStep {
-  step: 'AUTH' | 'GET' | 'DELETE' | 'POST' | 'VERIFY' | 'COMPARE';
+  step: 'AUTH' | 'GET' | 'DELETE' | 'POST' | 'VERIFY' | 'COMPARE' | 'VALIDATE' | 'CLEANUP';
   method?: string;
   url?: string;
   status?: number;
   data?: any;
   error?: string;
   timestamp: Date;
+}
+
+/**
+ * POST endpoint test case configuration
+ * Defines predefined test data for POST endpoint testing
+ */
+export interface PostTestCase {
+  /** Endpoint pattern, e.g., "POST /api/v2/systems/{system}" */
+  endpoint: string;
+  /** Human-readable description */
+  description: string;
+  /** Path parameter values, e.g., { system: "TestSystem" } */
+  pathParams: Record<string, string>;
+  /** Request body to send */
+  requestBody: any;
+  /** Expected HTTP status code */
+  expectedStatus: number;
+  /** Optional function to validate response */
+  validateResponse?: (response: any) => boolean;
+  /** GET endpoint to verify creation (with path params substituted) */
+  verifyEndpoint?: string;
+  /** DELETE endpoint for cleanup (with path params substituted) */
+  cleanupEndpoint?: string;
+  /** Body for DELETE request if needed */
+  cleanupBody?: any;
+  /** Dependencies - other test cases that must run first */
+  dependsOn?: string[];
+  /** Priority for ordering (lower = earlier) */
+  priority?: number;
+  /** Module/category for grouping */
+  module: string;
 }
 
 export interface TestResult {

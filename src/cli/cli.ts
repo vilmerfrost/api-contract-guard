@@ -36,6 +36,8 @@ program
   .option('--mode <mode>', 'Test mode: full (CRUD) or readonly (GET only)', 'full')
   .option('--use-real-data', 'Discover and use real IDs from API instead of placeholder "1"', false)
   .option('--use-hierarchical', 'Test parent-child API relationships (loop through all parent resources)', false)
+  .option('--test-posts', 'Run POST endpoint tests with predefined fixtures', false)
+  .option('--skip-cleanup', 'Skip cleanup step in POST fixture tests', false)
   .action(async (options) => {
     try {
       console.log('🚀 API Contract Guard - Starting Tests');
@@ -76,7 +78,9 @@ program
         parallel: options.parallel,
         maxParallel: parseInt(options.maxParallel),
         useRealData: options.useRealData,
-        useHierarchical: options.useHierarchical
+        useHierarchical: options.useHierarchical,
+        testPosts: options.testPosts,
+        skipCleanup: options.skipCleanup
       });
       
       const result = await orchestrator.runAll();
@@ -96,6 +100,89 @@ program
         console.log('✅ All tests passed!');
       } else {
         console.log('❌ Some tests failed');
+      }
+      
+      process.exit(exitCode);
+      
+    } catch (error: any) {
+      console.error('');
+      console.error('❌ Error:', error.message);
+      if (error.stack && process.env.DEBUG) {
+        console.error(error.stack);
+      }
+      process.exit(1);
+    }
+  });
+
+/**
+ * Test POST command - Run POST endpoint tests with fixtures
+ */
+program
+  .command('test-posts')
+  .description('Run POST endpoint tests with predefined fixtures')
+  .requiredOption('--swagger-url <url>', 'Swagger/OpenAPI JSON URL (for base URL extraction)')
+  .requiredOption('--token-url <url>', 'OAuth2 token endpoint')
+  .requiredOption('--username <user>', 'OAuth2 username (or use env var API_USERNAME)')
+  .requiredOption('--password <pass>', 'OAuth2 password (or use env var API_PASSWORD)')
+  .option('--output <file>', 'JUnit XML output file path', 'junit-posts.xml')
+  .option('--auto-start-vm', 'Automatically start Azure VM if API is down', true)
+  .option('--no-auto-start-vm', 'Do not automatically start Azure VM')
+  .option('--skip-cleanup', 'Skip cleanup step after tests', false)
+  .option('--skip-verify', 'Skip verification step after POST', false)
+  .option('--module <name>', 'Only run tests for specific module (e.g., SystemHandler, Model)')
+  .action(async (options) => {
+    try {
+      console.log('🚀 API Contract Guard - POST Endpoint Tests');
+      console.log('═══════════════════════════════════════');
+      console.log('');
+      
+      // Ensure VM is running if auto-start is enabled
+      if (options.autoStartVm) {
+        const vmStarter = new AzureVMStarter();
+        await vmStarter.ensureVMRunning(options.swaggerUrl);
+        console.log('');
+      }
+      
+      // Setup authentication
+      const auth: AuthConfig = {
+        type: 'oauth2',
+        username: options.username || process.env.API_USERNAME,
+        password: options.password || process.env.API_PASSWORD,
+        tokenUrl: options.tokenUrl
+      };
+      
+      if (!auth.username || !auth.password) {
+        throw new Error('Username and password are required (via flags or env vars API_USERNAME/API_PASSWORD)');
+      }
+      
+      // Run POST tests
+      const orchestrator = new TestOrchestrator({
+        swaggerUrl: options.swaggerUrl,
+        auth,
+        mode: 'full',
+        testPosts: true,
+        skipCleanup: options.skipCleanup,
+        skipVerify: options.skipVerify,
+        postModule: options.module
+      });
+      
+      const result = await orchestrator.runPostTests();
+      
+      // Print summary
+      orchestrator.printPostSummary(result);
+      
+      // Generate JUnit report
+      if (options.output) {
+        writeJUnitReport(result.results, options.output, 'POST Endpoint Tests');
+      }
+      
+      // Exit with appropriate code
+      const exitCode = result.failed > 0 ? 1 : 0;
+      
+      if (exitCode === 0) {
+        console.log('✅ All POST tests passed!');
+      } else {
+        console.log('❌ Some POST tests failed');
       }
       
       process.exit(exitCode);

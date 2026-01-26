@@ -1,9 +1,21 @@
 import { parseSwaggerUrl } from '../lib/swagger.js';
 import { runEndpointTest } from '../lib/tester.js';
-import { filterBlacklistedEndpoints } from './blacklist.js';
+import { filterBlacklistedEndpoints, isEndpointExcluded } from './blacklist.js';
 import { discoverTestData, discoverHierarchicalTestData, TestDataCache, HierarchicalTestData } from '../lib/data-discovery.js';
 import { findParentApiDefinition, getChildApiPaths, isChildApi } from '../lib/hierarchical-apis.js';
 import { Endpoint, EndpointGroup, AuthConfig, TestResult } from '../types/index.js';
+import { 
+  POST_TEST_CASES, 
+  PostTestCase, 
+  getTestCasesByModule,
+  buildUrl 
+} from '../lib/test-fixtures.js';
+import { 
+  runPostEndpointTests, 
+  printPostTestSummary, 
+  PostTestResult,
+  generatePostTestSummary
+} from '../lib/post-endpoint-tester.js';
 
 export interface OrchestratorOptions {
   swaggerUrl: string;
@@ -13,6 +25,10 @@ export interface OrchestratorOptions {
   maxParallel?: number;
   useRealData?: boolean; // Enable real data discovery
   useHierarchical?: boolean; // Enable hierarchical parent-child API testing
+  testPosts?: boolean; // Run POST endpoint tests with fixtures
+  skipCleanup?: boolean; // Skip cleanup step in POST fixture tests
+  skipVerify?: boolean; // Skip verification step in POST fixture tests
+  postModule?: string; // Only run POST tests for specific module
 }
 
 export interface OrchestratorResult {
@@ -657,6 +673,161 @@ export class TestOrchestrator {
           if (r.differences.length > 2) {
             console.log(`     ... and ${r.differences.length - 2} more`);
           }
+        }
+        
+        console.log('');
+      });
+      
+      console.log('═══════════════════════════════════════');
+      console.log('');
+    }
+  }
+  
+  /**
+   * Run POST endpoint tests with predefined fixtures
+   */
+  async runPostTests(): Promise<OrchestratorResult> {
+    const startTime = Date.now();
+    
+    console.log(`📋 Running POST endpoint tests with fixtures`);
+    
+    // Parse Swagger to get base URL
+    const { baseUrl } = await parseSwaggerUrl(this.options.swaggerUrl);
+    console.log(`🔗 Base URL: ${baseUrl}`);
+    
+    // Get test cases (optionally filtered by module)
+    let testCases = POST_TEST_CASES;
+    
+    if (this.options.postModule) {
+      testCases = getTestCasesByModule(this.options.postModule);
+      console.log(`🔍 Filtering to module: ${this.options.postModule}`);
+    }
+    
+    // Filter out blacklisted endpoints
+    const filteredCases = testCases.filter(tc => {
+      const [method, ...pathParts] = tc.endpoint.split(' ');
+      const path = pathParts.join(' ');
+      return !isEndpointExcluded(method, path);
+    });
+    
+    const skipped = testCases.length - filteredCases.length;
+    
+    console.log(`✅ Testing ${filteredCases.length} POST endpoints (${skipped} blacklisted)`);
+    console.log('');
+    
+    // Print test cases that will be run
+    console.log('═══════════════════════════════════════');
+    console.log('        POST ENDPOINTS TO TEST');
+    console.log('═══════════════════════════════════════');
+    
+    const byModule: Record<string, PostTestCase[]> = {};
+    for (const tc of filteredCases) {
+      if (!byModule[tc.module]) {
+        byModule[tc.module] = [];
+      }
+      byModule[tc.module].push(tc);
+    }
+    
+    for (const [module, cases] of Object.entries(byModule)) {
+      console.log(`\n📁 ${module} (${cases.length} tests)`);
+      console.log('─'.repeat(70));
+      for (const tc of cases) {
+        const url = buildUrl(tc.endpoint, tc.pathParams);
+        console.log(`  🔵 POST   ${baseUrl}${url}`);
+        console.log(`           ${tc.description}`);
+      }
+    }
+    
+    console.log('');
+    console.log('═══════════════════════════════════════');
+    console.log('');
+    
+    // Run tests
+    const results = await runPostEndpointTests(
+      filteredCases,
+      this.options.auth!,
+      {
+        baseUrl,
+        skipCleanup: this.options.skipCleanup,
+        skipVerify: this.options.skipVerify,
+        timeout: 30000
+      },
+      (result) => {
+        // Optional: additional logging per test
+      }
+    );
+    
+    const duration = Date.now() - startTime;
+    
+    // Convert PostTestResult[] to TestResult[] for compatibility
+    const testResults: TestResult[] = results.map(r => ({
+      resource: r.resource,
+      steps: r.steps,
+      passed: r.passed,
+      differences: r.differences,
+      duration: r.duration
+    }));
+    
+    const passed = results.filter(r => r.passed).length;
+    const failed = results.filter(r => !r.passed).length;
+    
+    return {
+      total: filteredCases.length,
+      passed,
+      failed,
+      skipped,
+      duration,
+      results: testResults
+    };
+  }
+  
+  /**
+   * Print POST test summary
+   */
+  printPostSummary(result: OrchestratorResult): void {
+    console.log('');
+    console.log('═══════════════════════════════════════');
+    console.log('       POST ENDPOINT TEST SUMMARY');
+    console.log('═══════════════════════════════════════');
+    console.log(`Total:     ${result.total}`);
+    console.log(`Passed:    ${result.passed} ✅`);
+    console.log(`Failed:    ${result.failed} ❌`);
+    console.log(`Skipped:   ${result.skipped} ⊘`);
+    console.log(`Duration:  ${(result.duration / 1000).toFixed(2)}s`);
+    
+    const passRate = result.total > 0 ? ((result.passed / result.total) * 100).toFixed(1) : '0.0';
+    console.log(`Pass Rate: ${passRate}%`);
+    console.log('═══════════════════════════════════════');
+    console.log('');
+    
+    if (result.failed > 0) {
+      console.log('═══════════════════════════════════════');
+      console.log('        FAILED POST ENDPOINTS');
+      console.log('═══════════════════════════════════════');
+      console.log('');
+      
+      result.results.filter(r => !r.passed).forEach(r => {
+        console.log(`❌ ${r.resource}`);
+        
+        // Log all failed steps
+        const failedSteps = r.steps.filter(s => s.error || (s.status && (s.status < 200 || s.status >= 400)));
+        if (failedSteps.length > 0) {
+          failedSteps.forEach(step => {
+            const statusInfo = step.status ? `[${step.status}]` : '[ERROR]';
+            const url = step.url || r.resource;
+            const method = step.method || step.step;
+            console.log(`   ${method.padEnd(7)} ${url} ${statusInfo}`);
+            if (step.error) {
+              console.log(`            └─ ${step.error}`);
+            }
+          });
+        }
+        
+        // Log differences
+        if (r.differences && r.differences.length > 0) {
+          r.differences.forEach(d => {
+            console.log(`     • ${d.path}: expected ${d.expected}, got ${d.actual}`);
+          });
         }
         
         console.log('');
