@@ -1,0 +1,133 @@
+name: Scheduled API Tests
+
+on:
+  # Run daily at 08:00 UTC (when VM is likely running)
+  schedule:
+    - cron: '0 8 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  NODE_TLS_REJECT_UNAUTHORIZED: '0'
+
+jobs:
+  daily-regression:
+    name: Daily API Regression Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build CLI
+        run: npm run build:cli
+      
+      - name: Check API Availability
+        id: api-check
+        run: |
+          if curl -k -s -o /dev/null -w "%{http_code}" "${{ secrets.SWAGGER_URL }}" | grep -q "200"; then
+            echo "api_available=true" >> $GITHUB_OUTPUT
+            echo "✅ API is available"
+          else
+            echo "api_available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ API is not available (VM may be down)"
+          fi
+        continue-on-error: true
+      
+      - name: Run Full Regression Tests
+        if: steps.api-check.outputs.api_available == 'true'
+        run: |
+          echo "🧪 Running full regression tests..."
+          node dist/cli/cli.js test \
+            --swagger-url "${{ secrets.SWAGGER_URL }}" \
+            --token-url "${{ secrets.TOKEN_URL }}" \
+            --username "${{ secrets.API_USERNAME }}" \
+            --password "${{ secrets.API_PASSWORD }}" \
+            --mode readonly \
+            --use-real-data \
+            --parallel \
+            --max-parallel 5 \
+            --no-auto-start-vm \
+            --output regression-results.xml
+        continue-on-error: true
+      
+      - name: Run POST Endpoint Tests
+        if: steps.api-check.outputs.api_available == 'true'
+        run: |
+          echo "🔵 Running POST endpoint tests..."
+          node dist/cli/cli.js test-posts \
+            --swagger-url "${{ secrets.SWAGGER_URL }}" \
+            --token-url "${{ secrets.TOKEN_URL }}" \
+            --username "${{ secrets.API_USERNAME }}" \
+            --password "${{ secrets.API_PASSWORD }}" \
+            --no-auto-start-vm \
+            --skip-cleanup \
+            --output post-results.xml
+        continue-on-error: true
+      
+      - name: Skip Tests - API Unavailable
+        if: steps.api-check.outputs.api_available != 'true'
+        run: |
+          echo "⚠️ Skipping tests - API is not available"
+          echo "The VM may be shut down (auto-shutdown at 23:00)"
+          exit 0
+      
+      - name: Upload All Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-test-results-${{ github.run_number }}
+          path: |
+            regression-results.xml
+            post-results.xml
+          retention-days: 90
+      
+      - name: Publish Regression Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: always() && steps.api-check.outputs.api_available == 'true'
+        with:
+          report_paths: 'regression-results.xml'
+          fail_on_failure: false
+          detailed_summary: true
+          check_name: 'Daily Regression Results'
+      
+      - name: Publish POST Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: always() && steps.api-check.outputs.api_available == 'true'
+        with:
+          report_paths: 'post-results.xml'
+          fail_on_failure: false
+          detailed_summary: true
+          check_name: 'Daily POST Test Results'
+      
+      - name: Send Slack Notification (Optional)
+        if: failure() && steps.api-check.outputs.api_available == 'true'
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "⚠️ API Contract Tests Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "⚠️ *API Contract Tests Failed*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Results>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true

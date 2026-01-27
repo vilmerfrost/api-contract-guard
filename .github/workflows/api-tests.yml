@@ -1,0 +1,149 @@
+name: API Contract Tests
+
+on:
+  # Run on pull requests
+  pull_request:
+    branches: [main, master, develop]
+  
+  # Run on pushes to main branches
+  push:
+    branches: [main, master]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Test mode (readonly or full)'
+        required: false
+        default: 'readonly'
+        type: choice
+        options:
+          - readonly
+          - full
+      run_post_tests:
+        description: 'Run POST endpoint tests with fixtures'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '20'
+  NODE_TLS_REJECT_UNAUTHORIZED: '0'
+
+jobs:
+  api-tests:
+    name: API Contract Regression Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build CLI
+        run: npm run build:cli
+      
+      - name: Run API Regression Tests (Readonly)
+        if: ${{ github.event.inputs.run_post_tests != 'true' }}
+        run: |
+          node dist/cli/cli.js test \
+            --swagger-url "${{ secrets.SWAGGER_URL }}" \
+            --token-url "${{ secrets.TOKEN_URL }}" \
+            --username "${{ secrets.API_USERNAME }}" \
+            --password "${{ secrets.API_PASSWORD }}" \
+            --mode ${{ github.event.inputs.test_mode || 'readonly' }} \
+            --use-real-data \
+            --parallel \
+            --max-parallel 5 \
+            --no-auto-start-vm \
+            --output test-results.xml
+        continue-on-error: true
+      
+      - name: Run POST Endpoint Tests (Fixtures)
+        if: ${{ github.event.inputs.run_post_tests == 'true' }}
+        run: |
+          node dist/cli/cli.js test-posts \
+            --swagger-url "${{ secrets.SWAGGER_URL }}" \
+            --token-url "${{ secrets.TOKEN_URL }}" \
+            --username "${{ secrets.API_USERNAME }}" \
+            --password "${{ secrets.API_PASSWORD }}" \
+            --no-auto-start-vm \
+            --output test-results.xml
+        continue-on-error: true
+      
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml
+          retention-days: 30
+      
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: 'test-results.xml'
+          fail_on_failure: true
+          require_tests: true
+          detailed_summary: true
+          include_passed: true
+
+  # Separate job for POST tests (optional, runs on schedule)
+  post-tests:
+    name: POST Endpoint Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_post_tests == 'true' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build CLI
+        run: npm run build:cli
+      
+      - name: Run POST Endpoint Tests
+        run: |
+          node dist/cli/cli.js test-posts \
+            --swagger-url "${{ secrets.SWAGGER_URL }}" \
+            --token-url "${{ secrets.TOKEN_URL }}" \
+            --username "${{ secrets.API_USERNAME }}" \
+            --password "${{ secrets.API_PASSWORD }}" \
+            --no-auto-start-vm \
+            --skip-cleanup \
+            --output post-test-results.xml
+        continue-on-error: true
+      
+      - name: Upload POST Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: post-test-results
+          path: post-test-results.xml
+          retention-days: 30
+      
+      - name: Publish POST Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: 'post-test-results.xml'
+          fail_on_failure: false
+          detailed_summary: true
+          check_name: 'POST Endpoint Test Results'
