@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Endpoints from "./pages/Endpoints";
 import Results from "./pages/Results";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import { EndpointGroup, TestResult, AuthConfig } from "./types";
 
@@ -50,6 +51,10 @@ const App = () => {
             <Route 
               path="/" 
               element={<Home onConfigUpdate={handleConfigUpdate} />} 
+            />
+            <Route 
+              path="/dashboard" 
+              element={<Dashboard />} 
             />
             <Route 
               path="/endpoints" 

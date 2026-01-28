@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { parseSwaggerUrl } from '@/lib/swagger';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Zap, Shield, GitCompare, ArrowRight, Server, TestTube } from 'lucide-react';
+import { Loader2, Zap, Shield, GitCompare, ArrowRight, Server, TestTube, Terminal } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface HomeProps {
@@ -117,6 +117,21 @@ export default function Home({ onConfigUpdate }: HomeProps) {
   return (
     <div className="min-h-screen gradient-hero">
       <div className="container mx-auto px-4 py-12 max-w-5xl">
+        {/* CLI Dashboard Link */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-center mb-6"
+        >
+          <Link to="/dashboard">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 text-sm font-medium hover:bg-slate-800 hover:text-white transition-all cursor-pointer group">
+              <Terminal className="h-4 w-4 text-cyan-400 group-hover:text-cyan-300" />
+              <span>Open CLI Control Center</span>
+              <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+        </motion.div>
+
         {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
