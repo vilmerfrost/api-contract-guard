@@ -50,6 +50,7 @@ full-output.txt
 test-*.js
 test-*.mjs
 test-*.ts
+!src/lib/test-fixtures.ts
 test-*.ps1
 test-*.sh
 manual-test.*
