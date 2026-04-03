@@ -293,7 +293,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', activeTasks: tasks.size });
 });
 
-const PORT = process.env.API_PORT || 3001;
+const PORT = process.env.API_PORT || 3002;
 
 app.listen(PORT, () => {
   console.log(`🚀 CLI API Server running on port ${PORT}`);

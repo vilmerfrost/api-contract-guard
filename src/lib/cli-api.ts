@@ -1,6 +1,6 @@
 import { CLITask, CLITaskSummary, CLILogEntry } from '@/types/cli';
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = 'http://localhost:3002';
 
 export interface ExecuteCLIOptions {
   command: string;
