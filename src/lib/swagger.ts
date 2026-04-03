@@ -39,7 +39,7 @@ export async function parseSwaggerUrl(url: string): Promise<{ groups: EndpointGr
     const agent = getHttpsAgent();
     const response = await axios.get(url, {
       httpsAgent: agent,
-      timeout: 30000,
+      timeout: 60000,
     });
     const spec = response.data;
     
