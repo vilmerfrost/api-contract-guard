@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "bin": {
-    "api-contract-guard": "./dist/cli/cli.js"
+    "api-contract-guard": "./dist/cli/cli.js",
+    "gate": "./dist/cli/cli.js"
   },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"vite\"",

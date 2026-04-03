@@ -10,14 +10,25 @@ import { parseSwaggerUrl } from '../lib/swagger.js';
 import { filterBlacklistedEndpoints } from './blacklist.js';
 import { CoverageAnalyzer } from './coverage-analyzer.js';
 import { AuthConfig, Endpoint } from '../types/index.js';
-import { banner } from './format.js';
+import { banner, customHelp, demo } from './format.js';
 
 const program = new Command();
 
 program
-  .name('api-contract-guard')
+  .name('gate')
   .description('Automated API Contract Regression Testing')
-  .version('1.0.0');
+  .version('1.0.0')
+  .option('--demo', 'Show a demo of CLI output (no credentials needed)')
+  .helpOption('-h, --help', 'Show help')
+  .addHelpCommand(false)
+  .action((options) => {
+    if (options.demo) {
+      demo();
+      process.exit(0);
+    }
+    customHelp();
+    process.exit(0);
+  });
 
 /**
  * Test command - Run regression tests
@@ -497,6 +508,27 @@ function getMethodColor(method: string): string {
       return '🔴';
     default:
       return '⚪';
+  }
+}
+
+// Override default help to use our custom version
+program.on('--help', () => {});
+program.configureHelp({
+  formatHelp: () => '',
+});
+
+// Show custom help when no args or --help
+if (process.argv.length <= 2 || process.argv.includes('-h') || process.argv.includes('--help')) {
+  // Let commander handle subcommand --help normally (e.g. "gate test --help")
+  const subcommands = ['test', 'test-posts', 'vm-start', 'list-endpoints', 'get', 'coverage'];
+  const hasSubcommand = process.argv.some(arg => subcommands.includes(arg));
+  if (!hasSubcommand) {
+    if (process.argv.includes('--demo')) {
+      demo();
+    } else {
+      customHelp();
+    }
+    process.exit(0);
   }
 }
 

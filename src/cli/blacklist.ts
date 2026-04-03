@@ -47,8 +47,12 @@ export const EXCLUDED_ENDPOINTS = [
   'GET /api/v2/deviations/baddata/conversions',
   'GET /api/v2/deviations/baddata/conversions/sample',
   
-  // === QPI EXECUTION (operational - runs queries) ===
+  // === QPI (operational - runs queries / returns 404) ===
   'GET /api/v2/run/qpi',
+  'GET /api/v2/qpi/settings',
+  'GET /api/v2/qpi',
+  'POST /api/v2/qpi/settings',
+  'POST /api/v2/qpi',
   
   // === AUDIT OPERATIONS (side effects - modifies audit logs) ===
   'POST /api/v2/sourcefiles/{sourcefile}/audits/{key}/use',

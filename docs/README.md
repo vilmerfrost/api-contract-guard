@@ -1,12 +1,12 @@
-# API Contract Guard
+# API Contract Guard (Docs)
+
+> **Note:** The primary README is at the project root: [`../README.md`](../README.md)
 
 Automated API Contract Regression Testing with Azure VM auto-start and CI/CD integration.
 
 ## Overview
 
 API Contract Guard is a dual-purpose tool that provides both a web UI and a CLI for automated API contract testing. It performs full CRUD regression tests against OpenAPI/Swagger specifications to ensure your API contracts remain stable across deployments.
-
-> 📖 **For a comprehensive tool overview, see [TOOL-OVERVIEW.md](./TOOL-OVERVIEW.md)**
 
 **Key Features:**
 - 🌐 Modern web UI for manual testing and exploration
@@ -156,7 +156,7 @@ For EACH system:
 Result: 8 systems × 7 child APIs = 56 tests
 ```
 
-**See:** `HIERARCHICAL-TESTING.md` for complete documentation
+**See:** `src/lib/hierarchical-apis.ts` for configuration
 
 ### Endpoint Blacklist
 
