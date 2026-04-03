@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
-import Endpoints from "./pages/Endpoints";
-import Results from "./pages/Results";
-import Dashboard from "./pages/Dashboard";
-import NotFound from "./pages/NotFound";
 import { EndpointGroup, TestResult, AuthConfig } from "./types";
+
+// Lazy-loaded pages
+const Endpoints = lazy(() => import("./pages/Endpoints"));
+const Results = lazy(() => import("./pages/Results"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -47,6 +49,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-muted-foreground">Loading...</div>}>
           <Routes>
             <Route 
               path="/" 
@@ -91,6 +94,7 @@ const App = () => {
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
