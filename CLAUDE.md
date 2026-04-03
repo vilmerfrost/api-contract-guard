@@ -4,6 +4,10 @@
 
 **Keep this file up to date.** When you make changes to the codebase, fix issues, add features, change config, or learn about new issues — update the relevant sections of this CLAUDE.md immediately. If a "Known Issue" gets resolved, remove it. If a new limitation is discovered, add it. If build status changes, reflect it. This file must always reflect the current state of the project.
 
+## CI Verification Rule
+
+**After every push to main, verify that the CI pipeline passes before considering the work done.** Check with `gh run list` and `gh run view <id>`. If CI fails, diagnose and fix before moving on. A green CI is part of "done".
+
 ## Overview
 
 Automated API contract regression testing tool that validates OpenAPI/Swagger specs against live APIs. Dual-mode: **Web UI** (React) for manual testing + **CLI** for CI/CD automation. Tests full CRUD flows (GET > DELETE > POST > GET > COMPARE), discovers real data from APIs, and generates JUnit XML reports.
