@@ -18,16 +18,16 @@ interface CommandBuilderProps {
 
 export function CommandBuilder({ onExecute, isRunning, className = '' }: CommandBuilderProps) {
   const [selectedCommand, setSelectedCommand] = useState<string>(CLI_COMMANDS[0].name);
-  const [values, setValues] = useState<Record<string, any>>({});
+  const [values, setValues] = useState<Record<string, string | number | boolean>>({});
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [savedConfigs, setSavedConfigs] = useState<Array<{ name: string; command: string; values: Record<string, any> }>>([]);
+  const [savedConfigs, setSavedConfigs] = useState<Array<{ name: string; command: string; values: Record<string, string | number | boolean> }>>([]);
 
   const currentCommand = CLI_COMMANDS.find(cmd => cmd.name === selectedCommand)!;
 
   const requiredOptions = currentCommand.options.filter(opt => opt.required);
   const advancedOptions = currentCommand.options.filter(opt => !opt.required);
 
-  const handleValueChange = (name: string, value: any) => {
+  const handleValueChange = (name: string, value: string | number | boolean) => {
     setValues(prev => ({ ...prev, [name]: value }));
   };
 

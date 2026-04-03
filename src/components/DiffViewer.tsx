@@ -4,8 +4,8 @@ import { Difference } from '@/types';
 import { motion } from 'framer-motion';
 
 interface DiffViewerProps {
-  original: any;
-  verified: any;
+  original: unknown;
+  verified: unknown;
   differences: Difference[];
 }
 
@@ -44,7 +44,7 @@ export function DiffViewer({ original, verified, differences }: DiffViewerProps)
     }
   };
 
-  const formatValue = (value: any): string => {
+  const formatValue = (value: unknown): string => {
     if (value === undefined) return 'undefined';
     if (value === null) return 'null';
     if (typeof value === 'object') return JSON.stringify(value, null, 2);

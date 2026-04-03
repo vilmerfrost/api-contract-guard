@@ -95,7 +95,7 @@ export function ResultsTimeline({ steps, isRunning }: ResultsTimelineProps) {
                   <h4 className="font-medium text-foreground">{getStepLabel(step)}</h4>
                   {step.method && (
                     <Badge 
-                      variant={step.method.toLowerCase() as any}
+                      variant={step.method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete"}
                       className="text-[10px]"
                     >
                       {step.method}
