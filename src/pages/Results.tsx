@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,14 +40,7 @@ export default function Results({
   const [liveSteps, setLiveSteps] = useState<TestStep[]>([]);
   const [isLiveRunning, setIsLiveRunning] = useState(false);
 
-  useEffect(() => {
-    // If no result exists, run the test
-    if (group && !result && !isLiveRunning) {
-      runTest();
-    }
-  }, [group, result]);
-
-  const runTest = async () => {
+  const runTest = useCallback(async () => {
     if (!group) return;
 
     setIsLiveRunning(true);
@@ -57,18 +50,25 @@ export default function Results({
       const testResult = await runEndpointTest(baseUrl, group, auth, (step) => {
         setLiveSteps(prev => [...prev, step]);
       });
-      
+
       onTestComplete(decodedResource, testResult);
       setIsLiveRunning(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Test Failed',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
       setIsLiveRunning(false);
     }
-  };
+  }, [group, baseUrl, auth, onTestComplete, decodedResource, toast]);
+
+  useEffect(() => {
+    // If no result exists, run the test
+    if (group && !result && !isLiveRunning) {
+      runTest();
+    }
+  }, [group, result, isLiveRunning, runTest]);
 
   const handleRetest = async () => {
     setIsRetesting(true);

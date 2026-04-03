@@ -126,12 +126,12 @@ export default function Dashboard() {
       );
 
       // Cleanup function stored on the task
-      (newTask as any).unsubscribe = unsubscribe;
+      (newTask as unknown as Record<string, unknown>).unsubscribe = unsubscribe;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Execution Failed',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     }
@@ -146,10 +146,10 @@ export default function Dashboard() {
         title: 'Task Cancelled',
         description: 'The running task has been cancelled',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Cancel Failed',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     }

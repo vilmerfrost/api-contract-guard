@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { parseSwaggerUrl } from '@/lib/swagger';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Zap, Shield, GitCompare, ArrowRight, Server, TestTube, Terminal } from 'lucide-react';
+import { EndpointGroup } from '@/types';
 import { motion } from 'framer-motion';
 
 interface HomeProps {
@@ -21,7 +22,7 @@ interface HomeProps {
       password?: string;
       tokenUrl?: string;
     };
-    endpointGroups: any[];
+    endpointGroups: EndpointGroup[];
   }) => void;
 }
 
@@ -80,10 +81,10 @@ export default function Home({ onConfigUpdate }: HomeProps) {
       });
 
       navigate('/endpoints');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Parsing Failed',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     } finally {
@@ -189,7 +190,7 @@ export default function Home({ onConfigUpdate }: HomeProps) {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="auth-type">Authentication</Label>
-                  <Select value={authType} onValueChange={(v) => setAuthType(v as any)}>
+                  <Select value={authType} onValueChange={(v) => setAuthType(v as 'none' | 'bearer' | 'apikey' | 'oauth2')}>
                     <SelectTrigger id="auth-type">
                       <SelectValue placeholder="Select auth type" />
                     </SelectTrigger>

@@ -41,10 +41,10 @@ export default function Endpoints({
       onTestComplete(group.resource, result);
       
       navigate(`/results/${encodeURIComponent(group.resource)}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Test Failed',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     } finally {
