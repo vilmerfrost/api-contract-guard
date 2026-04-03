@@ -15,9 +15,9 @@ export interface Endpoint {
   path: string;
   method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH';
   summary?: string;
-  parameters?: any[];
-  requestBody?: any;
-  responses?: any;
+  parameters?: Record<string, unknown>[];
+  requestBody?: Record<string, unknown>;
+  responses?: Record<string, unknown>;
   operationId?: string;
 }
 
@@ -31,7 +31,7 @@ export interface TestStep {
   method?: string;
   url?: string;
   status?: number;
-  data?: any;
+  data?: unknown;
   error?: string;
   timestamp: Date;
 }
@@ -48,17 +48,17 @@ export interface PostTestCase {
   /** Path parameter values, e.g., { system: "TestSystem" } */
   pathParams: Record<string, string>;
   /** Request body to send */
-  requestBody: any;
+  requestBody: Record<string, unknown>;
   /** Expected HTTP status code */
   expectedStatus: number;
   /** Optional function to validate response */
-  validateResponse?: (response: any) => boolean;
+  validateResponse?: (response: unknown) => boolean;
   /** GET endpoint to verify creation (with path params substituted) */
   verifyEndpoint?: string;
   /** DELETE endpoint for cleanup (with path params substituted) */
   cleanupEndpoint?: string;
   /** Body for DELETE request if needed */
-  cleanupBody?: any;
+  cleanupBody?: Record<string, unknown>;
   /** Dependencies - other test cases that must run first */
   dependsOn?: string[];
   /** Priority for ordering (lower = earlier) */
@@ -77,8 +77,8 @@ export interface TestResult {
 
 export interface Difference {
   path: string;
-  expected: any;
-  actual: any;
+  expected: unknown;
+  actual: unknown;
   type: 'added' | 'removed' | 'changed';
 }
 
