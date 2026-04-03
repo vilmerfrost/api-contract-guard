@@ -14,12 +14,10 @@ function getHttpsAgent() {
     if (!httpsAgent) {
       try {
         // Check if we're in Node.js and can access require
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         if (typeof require !== 'undefined') {
           // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { createRequire } = require('module');
           const nodeRequire = createRequire(import.meta.url);
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const https = nodeRequire('https');
           const rejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0' 
             && process.env.ACCEPT_SELF_SIGNED_CERT !== 'true';
@@ -79,17 +77,18 @@ export async function parseSwaggerUrl(url: string): Promise<{ groups: EndpointGr
     const endpoints: Endpoint[] = [];
     
     for (const [path, methods] of Object.entries(paths)) {
-      for (const [method, details] of Object.entries(methods as any)) {
+      for (const [method, details] of Object.entries(methods as Record<string, unknown>)) {
         const httpMethod = method.toUpperCase();
         if (['GET', 'POST', 'DELETE', 'PUT', 'PATCH'].includes(httpMethod)) {
+          const detail = details as Record<string, unknown>;
           endpoints.push({
             path: path,
             method: httpMethod as Endpoint['method'],
-            summary: (details as any).summary || (details as any).description,
-            parameters: (details as any).parameters,
-            requestBody: (details as any).requestBody,
-            responses: (details as any).responses,
-            operationId: (details as any).operationId,
+            summary: (detail.summary || detail.description) as string | undefined,
+            parameters: detail.parameters as Record<string, unknown>[] | undefined,
+            requestBody: detail.requestBody as Record<string, unknown> | undefined,
+            responses: detail.responses as Record<string, unknown> | undefined,
+            operationId: detail.operationId as string | undefined,
           });
         }
       }
@@ -127,14 +126,15 @@ export async function parseSwaggerUrl(url: string): Promise<{ groups: EndpointGr
     
     return { groups, baseUrl };
     
-  } catch (error: any) {
-    if (error.response) {
-      throw new Error(`Failed to fetch Swagger: ${error.response.status} ${error.response.statusText}`);
+  } catch (error: unknown) {
+    const axiosError = error as { response?: { status?: number; statusText?: string }; code?: string; message?: string };
+    if (axiosError.response) {
+      throw new Error(`Failed to fetch Swagger: ${axiosError.response.status} ${axiosError.response.statusText}`);
     }
-    if (error.code === 'ERR_NETWORK') {
+    if (axiosError.code === 'ERR_NETWORK') {
       throw new Error('Network error: CORS may be blocking the request. Try using a proxy or ensure the API allows cross-origin requests.');
     }
-    throw new Error(`Failed to parse Swagger: ${error.message}`);
+    throw new Error(`Failed to parse Swagger: ${axiosError.message}`);
   }
 }
 

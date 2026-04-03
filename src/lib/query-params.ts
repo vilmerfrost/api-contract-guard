@@ -5,7 +5,7 @@
  * This file maps endpoint paths to their required query params.
  */
 
-export const DEFAULT_QUERY_PARAMS: Record<string, Record<string, any>> = {
+export const DEFAULT_QUERY_PARAMS: Record<string, Record<string, unknown>> = {
   // Hash/encrypt endpoints
   '/api/v2/get/new/hash': { 
     salt: 'test123' 
@@ -123,7 +123,7 @@ export const DEFAULT_QUERY_PARAMS: Record<string, Record<string, any>> = {
  * @param path - The endpoint path (may contain parameters like {sourcefile})
  * @returns Query parameters object or empty object if none required
  */
-export function getQueryParams(path: string): Record<string, any> {
+export function getQueryParams(path: string): Record<string, unknown> {
   // First try exact match
   if (DEFAULT_QUERY_PARAMS[path]) {
     return DEFAULT_QUERY_PARAMS[path];

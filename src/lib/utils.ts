@@ -19,12 +19,10 @@ export function createAxiosInstance() {
   if (typeof window === 'undefined' && typeof process !== 'undefined') {
     try {
       // Check if we're in Node.js and can access require
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       if (typeof require !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.url) {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { createRequire } = require('module');
         const nodeRequire = createRequire(import.meta.url);
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const https = nodeRequire('https');
         
         // Check if SSL verification should be disabled

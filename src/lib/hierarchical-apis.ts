@@ -340,8 +340,8 @@ export const HIERARCHICAL_API_DEFINITIONS: ParentApiDefinition[] = [
  * Extract resource ID from an API response item
  */
 export function extractResourceId(
-  item: any, 
-  primaryField: string, 
+  item: Record<string, unknown>,
+  primaryField: string,
   alternativeFields?: string[]
 ): string | null {
   // Try primary field first

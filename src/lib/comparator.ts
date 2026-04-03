@@ -1,9 +1,9 @@
 import { Difference } from '@/types';
 
-export function deepCompare(obj1: any, obj2: any): Difference[] {
+export function deepCompare(obj1: unknown, obj2: unknown): Difference[] {
   const differences: Difference[] = [];
-  
-  function compare(a: any, b: any, path: string = '') {
+
+  function compare(a: unknown, b: unknown, path: string = '') {
     // Handle null/undefined
     if (a === null || a === undefined || b === null || b === undefined) {
       if (a !== b) {
@@ -49,27 +49,29 @@ export function deepCompare(obj1: any, obj2: any): Difference[] {
     }
     
     // Handle objects
-    const allKeys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
-    
+    const aObj = a as Record<string, unknown>;
+    const bObj = b as Record<string, unknown>;
+    const allKeys = new Set([...Object.keys(aObj || {}), ...Object.keys(bObj || {})]);
+
     for (const key of allKeys) {
       const newPath = path ? `${path}.${key}` : key;
-      
-      if (!(key in a)) {
+
+      if (!(key in aObj)) {
         differences.push({
           path: newPath,
           expected: undefined,
-          actual: b[key],
+          actual: bObj[key],
           type: 'added',
         });
-      } else if (!(key in b)) {
+      } else if (!(key in bObj)) {
         differences.push({
           path: newPath,
-          expected: a[key],
+          expected: aObj[key],
           actual: undefined,
           type: 'removed',
         });
       } else {
-        compare(a[key], b[key], newPath);
+        compare(aObj[key], bObj[key], newPath);
       }
     }
   }
@@ -78,7 +80,7 @@ export function deepCompare(obj1: any, obj2: any): Difference[] {
   return differences;
 }
 
-export function stripMetaFields(data: any, fieldsToIgnore: string[] = []): any {
+export function stripMetaFields(data: unknown, fieldsToIgnore: string[] = []): unknown {
   const defaultFields = ['id', '_id', 'createdAt', 'updatedAt', 'created_at', 'updated_at', 'timestamp'];
   const metaFields = [...defaultFields, ...fieldsToIgnore];
   
@@ -87,16 +89,16 @@ export function stripMetaFields(data: any, fieldsToIgnore: string[] = []): any {
   }
   
   if (typeof data === 'object' && data !== null) {
-    const cleaned = { ...data };
+    const cleaned: Record<string, unknown> = { ...(data as Record<string, unknown>) };
     metaFields.forEach(field => delete cleaned[field]);
-    
+
     // Recursively clean nested objects
     Object.keys(cleaned).forEach(key => {
       if (typeof cleaned[key] === 'object') {
         cleaned[key] = stripMetaFields(cleaned[key], fieldsToIgnore);
       }
     });
-    
+
     return cleaned;
   }
   

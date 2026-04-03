@@ -22,7 +22,7 @@ export interface TestDataCache {
   auditKeys: Array<{ id: string; name?: string }>;       // Audit keys
   exportAliases: Array<{ id: string; name?: string }>;   // Export aliases (v2)
   ingestAliases: Array<{ id: string; name?: string }>;   // Ingest aliases (v3)
-  [key: string]: any[];
+  [key: string]: Array<{ id?: string; name?: string; system?: string }>;
 }
 
 /**
@@ -35,7 +35,7 @@ export interface HierarchicalTestData {
   /** Description of the parent API */
   description: string;
   /** All discovered resources from the parent API */
-  resources: Array<{ id: string; name?: string; [key: string]: any }>;
+  resources: Array<{ id: string; name?: string; [key: string]: unknown }>;
   /** Child API patterns that depend on this parent */
   childApiCount: number;
 }
@@ -164,9 +164,10 @@ export async function discoverTestData(
 
       headers['Authorization'] = `Bearer ${accessToken}`;
       console.log('    ✅ OAuth2 token obtained');
-    } catch (error: any) {
-      const status = error.response?.status || 'ERROR';
-      const errorMsg = error.response?.data?.message || error.message;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number; data?: { message?: string } }; message?: string };
+      const status = axiosError.response?.status || 'ERROR';
+      const errorMsg = axiosError.response?.data?.message || axiosError.message;
       console.error(`    ❌ OAuth2 authentication failed [${status}]: ${errorMsg}`);
       throw new Error(`OAuth2 authentication failed: ${errorMsg}`);
     }
@@ -175,9 +176,9 @@ export async function discoverTestData(
   } else if (auth?.type === 'apikey' && auth.token) {
     headers['X-API-Key'] = auth.token;
   }
-  
+
   const config = { headers, timeout: 30000 };
-  
+
   // Helper to safely fetch and extract data
   const safeFetch = async (url: string, cacheName: string, idField: string = 'id', nameField: string = 'name') => {
     try {
@@ -204,33 +205,35 @@ export async function discoverTestData(
       }
       
       // Handle different response formats
-      let items: any[] = [];
+      let items: Record<string, unknown>[] = [];
       if (Array.isArray(data)) {
         items = data;
       } else if (typeof data === 'object' && data !== null) {
+        const dataObj = data as Record<string, unknown>;
         // Check for common wrapper patterns
         // IMPORTANT: Check for nested { data: { items: [...] } } first (like /api/v2/systems)
-        if (data.data && typeof data.data === 'object' && data.data.items && Array.isArray(data.data.items)) {
-          items = data.data.items;
-        } else if (data.data && Array.isArray(data.data)) {
-          items = data.data;
-        } else if (data.items && Array.isArray(data.items)) {
-          items = data.items;
-        } else if (data.results && Array.isArray(data.results)) {
-          items = data.results;
+        const innerData = dataObj.data as Record<string, unknown> | undefined;
+        if (innerData && typeof innerData === 'object' && innerData.items && Array.isArray(innerData.items)) {
+          items = innerData.items as Record<string, unknown>[];
+        } else if (dataObj.data && Array.isArray(dataObj.data)) {
+          items = dataObj.data as Record<string, unknown>[];
+        } else if (dataObj.items && Array.isArray(dataObj.items)) {
+          items = dataObj.items as Record<string, unknown>[];
+        } else if (dataObj.results && Array.isArray(dataObj.results)) {
+          items = dataObj.results as Record<string, unknown>[];
         } else {
           // For model objects, keys might be the resource names
           // But skip generic wrapper keys like 'data', 'items', 'results'
           const wrapperKeys = ['data', 'items', 'results', 'response', 'payload', '_links'];
-          items = Object.keys(data)
+          items = Object.keys(dataObj)
             .filter(key => !wrapperKeys.includes(key.toLowerCase()))
             .map(key => ({ name: key, id: key }));
         }
       }
-      
+
       if (items.length > 0) {
         const extracted = items.slice(0, 10).map(item => {
-          const result: any = {};
+          const result: Record<string, string> = {};
           
           // Extract ID - try the specified field first, then common alternatives
           // Note: Field names are case-sensitive (e.g., 'SourceFile' vs 'sourcefile')
@@ -289,8 +292,9 @@ export async function discoverTestData(
         console.log(`    ⚠️  No ${cacheName} found (empty list)`);
         return false;
       }
-    } catch (error: any) {
-      const status = error.response?.status || 'ERROR';
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number } };
+      const status = axiosError.response?.status || 'ERROR';
       console.log(`    ⚠️  Could not fetch ${cacheName} [${status}]`);
       return false;
     }
@@ -325,25 +329,26 @@ export async function discoverTestData(
       );
 
       if (auditsResponse.data) {
-        const data = auditsResponse.data;
-        let items: any[] = [];
+        const data = auditsResponse.data as Record<string, unknown>;
+        let items: Record<string, unknown>[] = [];
 
         // Handle { data: { items: [...] } } structure
-        if (data.data && data.data.items && Array.isArray(data.data.items)) {
-          items = data.data.items;
+        const innerData = data.data as Record<string, unknown> | undefined;
+        if (innerData && typeof innerData === 'object' && innerData.items && Array.isArray(innerData.items)) {
+          items = innerData.items as Record<string, unknown>[];
         } else if (data.items && Array.isArray(data.items)) {
-          items = data.items;
+          items = data.items as Record<string, unknown>[];
         } else if (Array.isArray(data)) {
-          items = data;
+          items = data as Record<string, unknown>[];
         } else if (data.data && Array.isArray(data.data)) {
-          items = data.data;
+          items = data.data as Record<string, unknown>[];
         }
 
         if (items.length > 0) {
           // Extract keys - the field is SrcFileKey (e.g., F-8fab8ca6-a2e1-4252-...)
           const keys = new Set<string>();
           
-          items.forEach(audit => {
+          items.forEach((audit: Record<string, unknown>) => {
             const key = audit.SrcFileKey || audit.srcFileKey || audit.Key || audit.key || audit.auditKey || audit.id;
             if (key) keys.add(String(key));
           });
@@ -361,8 +366,9 @@ export async function discoverTestData(
           console.log(`    ⚠️  No audit items found`);
         }
       }
-    } catch (error: any) {
-      const status = error.response?.status || 'ERROR';
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number } };
+      const status = axiosError.response?.status || 'ERROR';
       console.log(`    ⚠️  Could not fetch audits [${status}]`);
     }
     
@@ -378,7 +384,7 @@ export async function discoverTestData(
   
   // Discover systems
   // First try /api/v2/systems endpoint (response format: { data: { items: [...] } })
-  let systemsFound = await safeFetch(`${baseUrl}/api/v2/systems`, 'systems', 'system', 'description');
+  const systemsFound = await safeFetch(`${baseUrl}/api/v2/systems`, 'systems', 'system', 'description');
   
   // If systems found, try to find one that has a working connection
   // Some systems return 400 on connection endpoints due to misconfiguration
@@ -409,7 +415,7 @@ export async function discoverTestData(
           console.log(`    ✅ Found working system: ${system.id}`);
           break;
         }
-      } catch (error: any) {
+      } catch (_error: unknown) {
         // This system doesn't have a working connection, try next
       }
     }
@@ -451,9 +457,9 @@ export async function discoverTestData(
           if (systemName && typeof systemName === 'string') {
             systemIds.add(systemName);
             // Store system info on the sourcefile for reference
-            (sourcefile as any).system = systemName;
+            (sourcefile as { id: string; name?: string; system?: string }).system = systemName;
           }
-        } catch (error: any) {
+        } catch (_error: unknown) {
           // Skip this sourcefile if we can't fetch it
         }
       }
@@ -489,15 +495,15 @@ export async function discoverTestData(
       );
 
       if (attributesResponse.data) {
-        const data = attributesResponse.data;
-        let items: any[] = [];
+        const data = attributesResponse.data as Record<string, unknown>;
+        let items: Record<string, unknown>[] = [];
 
         if (Array.isArray(data)) {
-          items = data;
+          items = data as Record<string, unknown>[];
         } else if (data.data && Array.isArray(data.data)) {
-          items = data.data;
+          items = data.data as Record<string, unknown>[];
         } else if (data.items && Array.isArray(data.items)) {
-          items = data.items;
+          items = data.items as Record<string, unknown>[];
         }
 
         if (items.length > 0) {
@@ -515,8 +521,9 @@ export async function discoverTestData(
           console.log(`    ⚠️  No attributes found`);
         }
       }
-    } catch (error: any) {
-      const status = error.response?.status || 'ERROR';
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number } };
+      const status = axiosError.response?.status || 'ERROR';
       console.log(`    ⚠️  Could not fetch attributes [${status}]`);
     }
   }
@@ -541,13 +548,13 @@ export async function discoverTestData(
       );
 
       if (exportsResponse.data) {
-        const data = exportsResponse.data;
-        let items: any[] = [];
+        const data = exportsResponse.data as Record<string, unknown>;
+        let items: Record<string, unknown>[] = [];
 
         if (Array.isArray(data)) {
-          items = data;
+          items = data as Record<string, unknown>[];
         } else if (data.data && Array.isArray(data.data)) {
-          items = data.data;
+          items = data.data as Record<string, unknown>[];
         }
 
         if (items.length > 0) {
@@ -568,8 +575,9 @@ export async function discoverTestData(
           console.log(`    ⚠️  No export list found`);
         }
       }
-    } catch (error: any) {
-      const status = error.response?.status || 'ERROR';
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number } };
+      const status = axiosError.response?.status || 'ERROR';
       console.log(`    ⚠️  Could not fetch export aliases [${status}]`);
     }
   }
@@ -586,13 +594,13 @@ export async function discoverTestData(
       );
 
       if (ingestsResponse.data) {
-        const data = ingestsResponse.data;
-        let items: any[] = [];
+        const data = ingestsResponse.data as Record<string, unknown>;
+        let items: Record<string, unknown>[] = [];
 
         if (Array.isArray(data)) {
-          items = data;
+          items = data as Record<string, unknown>[];
         } else if (data.data && Array.isArray(data.data)) {
-          items = data.data;
+          items = data.data as Record<string, unknown>[];
         }
 
         if (items.length > 0) {
@@ -613,8 +621,9 @@ export async function discoverTestData(
           console.log(`    ⚠️  No ingest list found`);
         }
       }
-    } catch (error: any) {
-      const status = error.response?.status || 'ERROR';
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number } };
+      const status = axiosError.response?.status || 'ERROR';
       console.log(`    ⚠️  Could not fetch ingest aliases [${status}]`);
     }
   }
@@ -695,9 +704,10 @@ export async function discoverHierarchicalTestData(
 
       headers['Authorization'] = `Bearer ${accessToken}`;
       console.log('    ✅ OAuth2 token obtained');
-    } catch (error: any) {
-      const status = error.response?.status || 'ERROR';
-      const errorMsg = error.response?.data?.message || error.message;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number; data?: { message?: string } }; message?: string };
+      const status = axiosError.response?.status || 'ERROR';
+      const errorMsg = axiosError.response?.data?.message || axiosError.message;
       console.error(`    ❌ OAuth2 authentication failed [${status}]: ${errorMsg}`);
       throw new Error(`OAuth2 authentication failed: ${errorMsg}`);
     }
@@ -706,9 +716,9 @@ export async function discoverHierarchicalTestData(
   } else if (auth?.type === 'apikey' && auth.token) {
     headers['X-API-Key'] = auth.token;
   }
-  
+
   const config = { headers, timeout: 30000 };
-  
+
   // Fetch data from each parent API
   for (const definition of HIERARCHICAL_API_DEFINITIONS) {
     try {
@@ -720,32 +730,33 @@ export async function discoverHierarchicalTestData(
       const data = response.data;
       
       // Handle different response formats
-      let items: any[] = [];
+      let items: Record<string, unknown>[] = [];
       if (Array.isArray(data)) {
-        items = data;
+        items = data as Record<string, unknown>[];
       } else if (typeof data === 'object' && data !== null) {
+        const dataObj = data as Record<string, unknown>;
         // Check for common wrapper patterns (PRIORITIZE data wrapper)
-        if (data.data && Array.isArray(data.data)) {
-          items = data.data;
-        } else if (data.items && Array.isArray(data.items)) {
-          items = data.items;
-        } else if (data.results && Array.isArray(data.results)) {
-          items = data.results;
+        if (dataObj.data && Array.isArray(dataObj.data)) {
+          items = dataObj.data as Record<string, unknown>[];
+        } else if (dataObj.items && Array.isArray(dataObj.items)) {
+          items = dataObj.items as Record<string, unknown>[];
+        } else if (dataObj.results && Array.isArray(dataObj.results)) {
+          items = dataObj.results as Record<string, unknown>[];
         } else {
           // For non-array responses, wrap in array
-          items = [data];
+          items = [dataObj];
         }
       }
-      
+
       // Extract resource IDs from all items
-      const resources: Array<{ id: string; name?: string; [key: string]: any }> = [];
+      const resources: Array<{ id: string; name?: string; [key: string]: unknown }> = [];
       for (const item of items) {
         const id = extractResourceId(item, definition.idField, definition.alternativeIdFields);
         if (id) {
           resources.push({
+            ...item, // Include all fields for potential future use
             id,
-            name: item.name || item.displayName || item.title || undefined,
-            ...item // Include all fields for potential future use
+            name: (item.name || item.displayName || item.title || undefined) as string | undefined,
           });
         }
       }
@@ -770,8 +781,9 @@ export async function discoverHierarchicalTestData(
       } else {
         console.log(`    ⚠️  No resources found`);
       }
-    } catch (error: any) {
-      const status = error.response?.status || 'ERROR';
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number } };
+      const status = axiosError.response?.status || 'ERROR';
       console.log(`    ⚠️  Could not fetch parent API [${status}]: ${definition.parentPath}`);
     }
     

@@ -86,9 +86,10 @@ export class AzureVMStarter {
       console.log('✅ Azure Management API token acquired');
       
       return this.managementToken;
-    } catch (error: any) {
-      const errorData = error.response?.data;
-      
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: Record<string, string> }; message?: string };
+      const errorData = axiosError.response?.data;
+
       if (errorData?.error === 'invalid_client') {
         throw new Error(
           'Azure authentication failed: Invalid client credentials.\n' +
@@ -107,10 +108,10 @@ export class AzureVMStarter {
           `Azure error: ${errorData.error_description || errorData.error}`
         );
       }
-      
-      const errorMessage = errorData?.error_description 
-        || errorData?.error 
-        || error.message;
+
+      const errorMessage = errorData?.error_description
+        || errorData?.error
+        || axiosError.message;
       throw new Error(`Azure authentication failed: ${errorMessage}`);
     }
   }
@@ -142,13 +143,14 @@ export class AzureVMStarter {
       } else {
         throw new Error(`Unexpected status: ${response.status}`);
       }
-    } catch (error: any) {
-      if (error.response?.status === 409) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number }; message?: string };
+      if (axiosError.response?.status === 409) {
         // VM is already running or starting
         console.log('ℹ️  VM is already running or starting');
         return;
       }
-      throw new Error(`Failed to start VM: ${error.message}`);
+      throw new Error(`Failed to start VM: ${axiosError.message}`);
     }
   }
   
@@ -206,7 +208,7 @@ export class AzureVMStarter {
         console.log('✅ VM is already running and API is accessible');
         return;
       }
-    } catch (error: any) {
+    } catch (_error: unknown) {
       console.log('⚠️  API not accessible, attempting to start VM...');
     }
     

@@ -107,10 +107,11 @@ export async function runPostEndpointTest(
         status: 200,
         timestamp: new Date(),
       });
-    } catch (error: any) {
-      const statusCode = error.response?.status || 0;
-      const errorMsg = `OAuth2 authentication failed: ${error.message}`;
-      
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number }; message?: string };
+      const statusCode = axiosError.response?.status || 0;
+      const errorMsg = `OAuth2 authentication failed: ${axiosError.message}`;
+
       addStep({
         step: 'AUTH',
         method: 'POST',
@@ -119,7 +120,7 @@ export async function runPostEndpointTest(
         error: errorMsg,
         timestamp: new Date(),
       });
-      
+
       console.error(`  [FAIL] AUTH: ${auth.tokenUrl} [${statusCode}] - ${errorMsg}`);
       
       return {
@@ -144,7 +145,7 @@ export async function runPostEndpointTest(
   const postUrl = `${options.baseUrl}${postPath}`;
 
   // Step 2: POST
-  let postResponse: any = null;
+  let postResponse: { status: number; data: unknown } | null = null;
   let postSuccess = false;
   
   try {
@@ -165,10 +166,11 @@ export async function runPostEndpointTest(
     } else {
       console.warn(`  [WARN] POST: ${postUrl} [${postResponse.status}] - Expected ${testCase.expectedStatus}`);
     }
-  } catch (error: any) {
-    const statusCode = error.response?.status || 0;
-    const errorMsg = error.response?.data?.message || error.response?.data?.detail || error.message;
-    
+  } catch (error: unknown) {
+    const axiosError = error as { response?: { status?: number; data?: { message?: string; detail?: string } }; message?: string };
+    const statusCode = axiosError.response?.status || 0;
+    const errorMsg = axiosError.response?.data?.message || axiosError.response?.data?.detail || axiosError.message;
+
     addStep({
       step: 'POST',
       method: 'POST',
@@ -178,7 +180,7 @@ export async function runPostEndpointTest(
       error: errorMsg,
       timestamp: new Date(),
     });
-    
+
     console.error(`  [FAIL] POST: ${postUrl} [${statusCode}] - ${errorMsg}`);
     
     // If POST failed, skip verify and cleanup
@@ -212,11 +214,12 @@ export async function runPostEndpointTest(
       });
       
       console.log(`  [PASS] VERIFY: ${verifyUrl} [${verifyResponse.status}]`);
-    } catch (error: any) {
-      const statusCode = error.response?.status || 0;
-      const errorMsg = error.message;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number }; message?: string };
+      const statusCode = axiosError.response?.status || 0;
+      const errorMsg = axiosError.message || 'Unknown error';
       verifySuccess = false;
-      
+
       addStep({
         step: 'VERIFY',
         method: 'GET',
@@ -225,7 +228,7 @@ export async function runPostEndpointTest(
         error: errorMsg,
         timestamp: new Date(),
       });
-      
+
       console.warn(`  [WARN] VERIFY: ${verifyUrl} [${statusCode}] - ${errorMsg}`);
     }
   }
@@ -248,16 +251,17 @@ export async function runPostEndpointTest(
       } else {
         console.warn(`  [WARN] VALIDATE: Custom validation failed`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       validateSuccess = false;
-      
+
       addStep({
         step: 'VALIDATE',
-        error: error.message,
+        error: err.message,
         timestamp: new Date(),
       });
-      
-      console.warn(`  [WARN] VALIDATE: ${error.message}`);
+
+      console.warn(`  [WARN] VALIDATE: ${err.message}`);
     }
   }
 
@@ -284,11 +288,12 @@ export async function runPostEndpointTest(
       });
       
       console.log(`  [PASS] CLEANUP: ${cleanupUrl} [${cleanupResponse.status}]`);
-    } catch (error: any) {
-      const statusCode = error.response?.status || 0;
-      const errorMsg = error.message;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number }; message?: string };
+      const statusCode = axiosError.response?.status || 0;
+      const errorMsg = axiosError.message || 'Unknown error';
       cleanupSuccess = false;
-      
+
       addStep({
         step: 'CLEANUP',
         method: 'DELETE',
@@ -297,14 +302,14 @@ export async function runPostEndpointTest(
         error: errorMsg,
         timestamp: new Date(),
       });
-      
+
       // Cleanup failure is not a test failure, just a warning
       console.warn(`  [WARN] CLEANUP: ${cleanupUrl} [${statusCode}] - ${errorMsg}`);
     }
   }
 
   const passed = postSuccess && verifySuccess && validateSuccess;
-  const differences: any[] = [];
+  const differences: Array<{ path: string; expected: unknown; actual: unknown; type: 'added' | 'removed' | 'changed' }> = [];
   
   if (!postSuccess) {
     differences.push({ path: 'post.status', expected: testCase.expectedStatus, actual: postResponse?.status, type: 'changed' });

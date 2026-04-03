@@ -57,19 +57,20 @@ async function getOAuth2Token(
     }
 
     return accessToken;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Enhanced error handling matching Stefan's implementation
-    if (error.response) {
-      const status = error.response.status;
-      const statusText = error.response.statusText;
-      const errorData = error.response.data;
+    const axiosError = error as { response?: { status?: number; statusText?: string; data?: unknown }; message?: string };
+    if (axiosError.response) {
+      const status = axiosError.response.status;
+      const statusText = axiosError.response.statusText;
+      const errorData = axiosError.response.data;
       const errorText = errorData ? (typeof errorData === 'string' ? errorData : JSON.stringify(errorData)) : statusText;
-      
+
       console.error(`OAuth2 authentication failed: ${status} ${statusText} - ${errorText}`);
-      throw new Error(`OAuth2 authentication failed: ${status} ${statusText} - ${errorText.substring(0, 200)}`);
+      throw new Error(`OAuth2 authentication failed: ${status} ${statusText} - ${String(errorText).substring(0, 200)}`);
     }
-    
-    throw new Error(`OAuth2 authentication failed: ${error.message}`);
+
+    throw new Error(`OAuth2 authentication failed: ${axiosError.message}`);
   }
 }
 
@@ -130,10 +131,11 @@ export async function runEndpointTest(
         status: 200,
         timestamp: new Date(),
       });
-    } catch (error: any) {
-      const statusCode = error.response?.status || 0;
-      const errorMsg = `OAuth2 authentication failed: ${error.message}`;
-      
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number }; message?: string };
+      const statusCode = axiosError.response?.status || 0;
+      const errorMsg = `OAuth2 authentication failed: ${axiosError.message}`;
+
       addStep({
         step: 'AUTH',
         method: 'POST',
@@ -142,7 +144,7 @@ export async function runEndpointTest(
         error: errorMsg,
         timestamp: new Date(),
       });
-      
+
       // Log detailed error to console
       console.error(`  ❌ AUTH failed: ${auth.tokenUrl} [${statusCode}] - ${errorMsg}`);
       
@@ -170,9 +172,9 @@ export async function runEndpointTest(
   
   try {
     // Step 1: GET (try specific ID first, then list)
-    let getResponse: any;
+    let getResponse: { status: number; data: unknown } | undefined;
     let resourceId = '1';
-    let originalData: any = null;
+    let originalData: unknown = null;
     
     // If readonly mode, just test GET and return
     if (mode === 'readonly') {
@@ -229,10 +231,11 @@ export async function runEndpointTest(
           differences: passed ? [] : [{ path: 'status', expected: 200, actual: response.status, type: 'changed' }],
           duration: Date.now() - startTime,
         };
-      } catch (error: any) {
-        const statusCode = error.response?.status || 0;
-        const errorMsg = error.message;
-        
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number }; message?: string };
+        const statusCode = axiosError.response?.status || 0;
+        const errorMsg = axiosError.message || 'Unknown error';
+
         addStep({
           step: 'GET',
           method: 'GET',
@@ -241,10 +244,10 @@ export async function runEndpointTest(
           error: errorMsg,
           timestamp: new Date(),
         });
-        
+
         // Log detailed error to console
         console.error(`  ❌ GET failed: ${fullUrl} [${statusCode}] - ${errorMsg}`);
-        
+
         return {
           resource: group.resource,
           steps,
@@ -254,7 +257,7 @@ export async function runEndpointTest(
         };
       }
     }
-    
+
     // Full CRUD mode continues below...
     // Try GET with ID
     if (getEndpoint) {
@@ -276,9 +279,10 @@ export async function runEndpointTest(
           timestamp: new Date(),
         });
         originalData = getResponse.data;
-      } catch (error: any) {
-        const statusCode = error.response?.status || 0;
-        
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number }; message?: string };
+        const statusCode = axiosError.response?.status || 0;
+
         if (statusCode === 404 && getListEndpoint) {
           // Try getting list
           const listUrl = buildFullUrl(getListEndpoint.path);
@@ -291,7 +295,8 @@ export async function runEndpointTest(
           
           if (items.length > 0) {
             originalData = items[0];
-            resourceId = originalData.id || originalData._id || '1';
+            const item = originalData as Record<string, unknown>;
+            resourceId = String(item.id || item._id || '1');
             addStep({
               step: 'GET',
               method: 'GET',
@@ -312,7 +317,7 @@ export async function runEndpointTest(
             });
           }
         } else {
-          const errorMsg = error.message;
+          const errorMsg = axiosError.message || 'Unknown error';
           addStep({
             step: 'GET',
             method: 'GET',
@@ -339,9 +344,10 @@ export async function runEndpointTest(
         
         if (items.length > 0) {
           originalData = items[0];
-          resourceId = originalData.id || originalData._id || '1';
+          const item = originalData as Record<string, unknown>;
+          resourceId = String(item.id || item._id || '1');
         }
-        
+
         addStep({
           step: 'GET',
           method: 'GET',
@@ -350,9 +356,10 @@ export async function runEndpointTest(
           data: originalData || items,
           timestamp: new Date(),
         });
-      } catch (error: any) {
-        const statusCode = error.response?.status || 0;
-        const errorMsg = error.message;
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number }; message?: string };
+        const statusCode = axiosError.response?.status || 0;
+        const errorMsg = axiosError.message || 'Unknown error';
         
         addStep({
           step: 'GET',
@@ -382,9 +389,10 @@ export async function runEndpointTest(
           status: deleteResponse.status,
           timestamp: new Date(),
         });
-      } catch (error: any) {
-        const statusCode = error.response?.status || 0;
-        const errorMsg = statusCode === 404 ? 'Resource not found (may be expected)' : error.message;
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number }; message?: string };
+        const statusCode = axiosError.response?.status || 0;
+        const errorMsg = statusCode === 404 ? 'Resource not found (may be expected)' : (axiosError.message || 'Unknown error');
         
         addStep({
           step: 'DELETE',
@@ -429,9 +437,10 @@ export async function runEndpointTest(
           data: postResponse.data,
           timestamp: new Date(),
         });
-      } catch (error: any) {
-        const statusCode = error.response?.status || 0;
-        const errorMsg = error.response?.data?.message || error.message;
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number; data?: { message?: string } }; message?: string };
+        const statusCode = axiosError.response?.status || 0;
+        const errorMsg = axiosError.response?.data?.message || axiosError.message || 'Unknown error';
         
         addStep({
           step: 'POST',
@@ -457,7 +466,7 @@ export async function runEndpointTest(
     }
     
     // Step 4: VERIFY (GET the newly created resource)
-    let verifyData: any = null;
+    let verifyData: unknown = null;
     
     if (getEndpoint && newResourceId) {
       // For verification, use the newly created resource ID
@@ -480,10 +489,11 @@ export async function runEndpointTest(
           data: verifyData,
           timestamp: new Date(),
         });
-      } catch (error: any) {
-        const statusCode = error.response?.status || 0;
-        const errorMsg = error.message;
-        
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number }; message?: string };
+        const statusCode = axiosError.response?.status || 0;
+        const errorMsg = axiosError.message || 'Unknown error';
+
         addStep({
           step: 'VERIFY',
           method: 'GET',
@@ -492,7 +502,7 @@ export async function runEndpointTest(
           error: errorMsg,
           timestamp: new Date(),
         });
-        
+
         // Log detailed error to console
         console.error(`  ❌ VERIFY failed: ${fullUrl} [${statusCode}] - ${errorMsg}`);
       }
@@ -507,7 +517,7 @@ export async function runEndpointTest(
     }
     
     // Step 5: COMPARE
-    let differences: any[] = [];
+    let differences: Array<{ path: string; expected: unknown; actual: unknown; type: 'added' | 'removed' | 'changed' }> = [];
     let passed = false;
     
     if (originalData && verifyData) {
@@ -537,20 +547,21 @@ export async function runEndpointTest(
       duration,
     };
     
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
     const duration = Date.now() - startTime;
-    
+
     steps.push({
       step: 'COMPARE',
-      error: `Test failed: ${error.message}`,
+      error: `Test failed: ${err.message}`,
       timestamp: new Date(),
     });
-    
+
     return {
       resource: group.resource,
       steps,
       passed: false,
-      differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
+      differences: [{ path: 'error', expected: 'success', actual: err.message, type: 'changed' }],
       duration,
     };
   }

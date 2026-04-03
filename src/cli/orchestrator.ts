@@ -78,8 +78,9 @@ export class TestOrchestrator {
       // Hierarchical mode: discover parent-child relationships
       try {
         hierarchicalData = await discoverHierarchicalTestData(baseUrl, this.options.auth);
-      } catch (error: any) {
-        console.warn(`⚠️  Hierarchical data discovery failed: ${error.message}`);
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.warn(`⚠️  Hierarchical data discovery failed: ${err.message}`);
         console.warn(`   Falling back to standard testing`);
         console.log('');
       }
@@ -87,8 +88,9 @@ export class TestOrchestrator {
       // Standard mode: discover real IDs
       try {
         testDataCache = await discoverTestData(baseUrl, this.options.auth);
-      } catch (error: any) {
-        console.warn(`⚠️  Data discovery failed: ${error.message}`);
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.warn(`⚠️  Data discovery failed: ${err.message}`);
         console.warn(`   Falling back to placeholder IDs`);
         console.log('');
       }
@@ -228,17 +230,18 @@ export class TestOrchestrator {
             console.log(`     Differences: ${result.differences.length}`);
           }
         }
-      } catch (error: any) {
-        console.log(`  ❌ ERROR: ${error.message}`);
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.log(`  ❌ ERROR: ${err.message}`);
         results.push({
           resource: endpoint.path,
           steps: [],
           passed: false,
-          differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
+          differences: [{ path: 'error', expected: 'success', actual: err.message, type: 'changed' }],
           duration: 0
         });
       }
-      
+
       console.log('');
       current++;
     }
@@ -293,12 +296,13 @@ export class TestOrchestrator {
             undefined,
             { mode: this.options.mode, testDataCache }
           );
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error instanceof Error ? error : new Error(String(error));
           return {
             resource: endpoint.path,
             steps: [],
             passed: false,
-            differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
+            differences: [{ path: 'error', expected: 'success', actual: err.message, type: 'changed' }],
             duration: 0
           } as TestResult;
         }
@@ -475,12 +479,13 @@ export class TestOrchestrator {
         } else {
           console.log(`  ⚠️  Parent endpoint not found in Swagger spec`);
         }
-      } catch (error: any) {
-        console.log(`  ❌ ERROR: ${error.message}`);
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.log(`  ❌ ERROR: ${err.message}`);
       }
-      
+
       console.log('');
-      
+
       // Step 2: Loop through all resources and test child APIs
       for (const resource of parentData.resources) {
         const displayName = resource.name ? `${resource.id} (${resource.name})` : resource.id;
@@ -572,13 +577,14 @@ export class TestOrchestrator {
                 console.log(`  ❌ FAILED`);
               }
             }
-          } catch (error: any) {
-            console.log(`  ❌ ERROR: ${error.message}`);
+          } catch (error: unknown) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            console.log(`  ❌ ERROR: ${err.message}`);
             results.push({
               resource: childPath.path,
               steps: [],
               passed: false,
-              differences: [{ path: 'error', expected: 'success', actual: error.message, type: 'changed' }],
+              differences: [{ path: 'error', expected: 'success', actual: err.message, type: 'changed' }],
               duration: 0
             });
           }

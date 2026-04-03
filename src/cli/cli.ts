@@ -104,11 +104,12 @@ program
       
       process.exit(exitCode);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error('');
-      console.error('❌ Error:', error.message);
-      if (error.stack && process.env.DEBUG) {
-        console.error(error.stack);
+      console.error('❌ Error:', err.message);
+      if (err.stack && process.env.DEBUG) {
+        console.error(err.stack);
       }
       process.exit(1);
     }
@@ -187,11 +188,12 @@ program
       
       process.exit(exitCode);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error('');
-      console.error('❌ Error:', error.message);
-      if (error.stack && process.env.DEBUG) {
-        console.error(error.stack);
+      console.error('❌ Error:', err.message);
+      if (err.stack && process.env.DEBUG) {
+        console.error(err.stack);
       }
       process.exit(1);
     }
@@ -217,9 +219,10 @@ program
       console.log('✅ VM is running and API is ready');
       process.exit(0);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error('');
-      console.error('❌ Error:', error.message);
+      console.error('❌ Error:', err.message);
       process.exit(1);
     }
   });
@@ -292,9 +295,10 @@ program
       
       process.exit(0);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error('');
-      console.error('❌ Error:', error.message);
+      console.error('❌ Error:', err.message);
       process.exit(1);
     }
   });
@@ -337,8 +341,9 @@ program
           console.log(`export ${key}="${cleanValue}"`);
         }
       }
-    } catch (error: any) {
-      console.error(`# ❌ Error reading file: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error(`# ❌ Error reading file: ${err.message}`);
       process.exit(1);
     }
   });
@@ -387,8 +392,9 @@ program
           
           console.log(`✅ Loaded ${testResults.length} test results`);
           console.log('');
-        } catch (error: any) {
-          console.log(`⚠️  Could not parse test results: ${error.message}`);
+        } catch (error: unknown) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          console.log(`⚠️  Could not parse test results: ${err.message}`);
           console.log('');
         }
       } else {
@@ -426,9 +432,10 @@ program
       
       process.exit(0);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error('');
-      console.error('❌ Error:', error.message);
+      console.error('❌ Error:', err.message);
       process.exit(1);
     }
   });
