@@ -92,20 +92,18 @@ Optional:
 - The VM typically takes 2-5 minutes to boot and become API-ready
 - Scheduled CI tests (GitHub Actions at 08:00 UTC) check availability before running
 
-## Blacklisted Endpoints (51 total)
+## Blacklisted Endpoints (29 total)
 
-All defined in `src/cli/blacklist.ts`. Excluded from testing because they have side effects, require manual params, or are broken server-side:
+All defined in `src/cli/blacklist.ts`. Only endpoints with dangerous side effects or impossible-to-discover params are blacklisted. Everything else is tested — including 404s, 500s, and audit endpoints — because the client wants visibility into those failures.
 
 | Category | Count | Examples |
 |----------|-------|---------|
 | Workload management | 8 | `POST .../claim/workload`, `POST .../start/workload` |
 | Schedule state changes | 10 | `POST .../schedule/{sf}/state`, `POST .../restart` |
-| Deviations (data fixes) | 6 | `GET .../deviations/badloadings`, `.../danglingrecords/fix` |
-| QPI (returns 404) | 5 | `GET /api/v2/qpi`, `GET /api/v2/qpi/settings` |
-| Audit operations | 10 | `POST .../audits/{key}/use`, `POST .../audit/sync/definition` |
 | Query param required | 10 | `GET .../get/new/hash`, `GET .../schedule/by-time` |
 | Copy/migration | 1 | `GET .../copy/from/{from}/to/{to}` |
-| API bugs (500) | 1 | `GET /api/v3/ingest/connection` |
+
+**NOT blacklisted (client wants to see results):** Deviations, QPI, audit operations, API bugs (500s)
 
 ## CI/CD Pipelines
 
@@ -137,7 +135,7 @@ Default, main branch, and PR pipelines. Requires repo variables `API_USERNAME`, 
 - CLI and web UI share core lib code (`src/lib/`)
 - Web UI communicates with Express server which spawns CLI commands
 - Server uses SSE for real-time log streaming
-- Blacklisted endpoints defined in `src/cli/blacklist.ts`
+- 29 blacklisted endpoints in `src/cli/blacklist.ts` (side effects + missing params only)
 - Hierarchical testing supports parent-child API relationships
 - Data discovery auto-extracts real IDs from API responses
 - JUnit XML output for CI/CD integration

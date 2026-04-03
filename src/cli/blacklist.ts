@@ -39,32 +39,8 @@ export const EXCLUDED_ENDPOINTS = [
   'POST /api/v2/master/schedule/{sourcefile}/next/rundate',
   'POST /api/v3/master/schedule/bulk/next/rundate',
   
-  // === DEVIATIONS (operational - may fix data) ===
-  'GET /api/v2/deviations/badloadings',
-  'GET /api/v2/deviations/danglingrecords/sample',
-  'GET /api/v2/deviations/danglingrecords/fix',
-  'GET /api/v2/deviations/danglingrecords/reload',
-  'GET /api/v2/deviations/baddata/conversions',
-  'GET /api/v2/deviations/baddata/conversions/sample',
-  
-  // === QPI (operational - runs queries / returns 404) ===
-  'GET /api/v2/run/qpi',
-  'GET /api/v2/qpi/settings',
-  'GET /api/v2/qpi',
-  'POST /api/v2/qpi/settings',
-  'POST /api/v2/qpi',
-  
-  // === AUDIT OPERATIONS (side effects - modifies audit logs) ===
-  'POST /api/v2/sourcefiles/{sourcefile}/audits/{key}/use',
-  'POST /api/v2/sourcefiles/{sourcefile}/audit/sync/definition',
-  'POST /api/v2/auditlog',
-  'POST /api/v2/auditbatch',
-  'POST /api/v3/blob/undefined/file',
-  'POST /api/v3/{zone}/trigger',
-  'POST /api/v3/sourcefiles/{sourcefile}/statistics',
-  'POST /api/v3/audit/publisher/sourcefile',
-  'POST /api/v3/audit/publisher/table',
-  'POST /api/v3/audit/publisher/sourcefile/trigger',
+  // NOTE: Deviations, QPI, Audit operations, and API bugs (500s) are NOT
+  // blacklisted — the client wants to see these results, including failures.
   
   // === QUERY PARAM REQUIRED (cannot auto-discover params) ===
   'GET /api/v2/get/new/hash',           // Requires ?value= query param
@@ -78,8 +54,6 @@ export const EXCLUDED_ENDPOINTS = [
   'GET /api/v3/openlineage/dataset',    // Requires ?namespace=&name= query params
   'GET /api/v2/extraprocessor',         // Requires ?sourcefile= query param
   
-  // === API BUGS (server errors) ===
-  'GET /api/v3/ingest/connection',      // Returns 500 Internal Server Error
 ];
 
 /**
