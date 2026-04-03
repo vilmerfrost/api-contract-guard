@@ -13,8 +13,8 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "strict": false,
-    "noImplicitAny": false,
+    "strict": true,
+    "noImplicitAny": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
