@@ -4,6 +4,7 @@ import { filterBlacklistedEndpoints, isEndpointExcluded } from './blacklist.js';
 import { discoverTestData, discoverHierarchicalTestData, TestDataCache, HierarchicalTestData } from '../lib/data-discovery.js';
 import { findParentApiDefinition, getChildApiPaths, isChildApi } from '../lib/hierarchical-apis.js';
 import { Endpoint, EndpointGroup, AuthConfig, TestResult } from '../types/index.js';
+import { pass, fail, skip, info, heading, progress, summaryTable, c } from './format.js';
 import { 
   POST_TEST_CASES, 
   PostTestCase, 
@@ -62,13 +63,13 @@ export class TestOrchestrator {
   async runAll(): Promise<OrchestratorResult> {
     const startTime = Date.now();
     
-    console.log(`📋 Parsing Swagger from: ${this.options.swaggerUrl}`);
-    
+    info(`Parsing Swagger from: ${this.options.swaggerUrl}`);
+
     // Parse Swagger
     const { groups, baseUrl } = await parseSwaggerUrl(this.options.swaggerUrl);
-    
-    console.log(`✅ Found ${groups.length} endpoint groups`);
-    console.log(`🔗 Base URL: ${baseUrl}`);
+
+    pass(`Found ${groups.length} endpoint groups`);
+    info(`Base URL: ${baseUrl}`);
     
     // Discover real test data if enabled
     let testDataCache: TestDataCache | undefined;
@@ -106,7 +107,7 @@ export class TestOrchestrator {
     const filteredEndpoints = filteredGroups.reduce((sum, g) => sum + g.endpoints.length, 0);
     const skipped = totalEndpoints - filteredEndpoints;
     
-    console.log(`✅ Testing ${filteredEndpoints} endpoints (${skipped} blacklisted)`);
+    pass(`Testing ${filteredEndpoints} endpoints (${skipped} blacklisted)`);
     console.log('');
     
     // Run tests
@@ -114,7 +115,7 @@ export class TestOrchestrator {
     
     if (this.options.useHierarchical && hierarchicalData) {
       // Hierarchical mode: test parent APIs and loop through child APIs
-      console.log('🔄 Running hierarchical tests (parent → child loop)');
+      heading('Running hierarchical tests (parent → child loop)');
       console.log('');
       results.push(...await this.runHierarchical(baseUrl, filteredGroups, hierarchicalData));
     } else {
@@ -172,12 +173,12 @@ export class TestOrchestrator {
     let current = 1;
     const total = allEndpoints.length;
     
-    console.log(`📊 Testing ${total} endpoints (${this.options.mode === 'readonly' ? 'readonly mode - GET only' : 'full CRUD mode'})`);
+    heading(`Testing ${total} endpoints (${this.options.mode === 'readonly' ? 'readonly mode - GET only' : 'full CRUD mode'})`);
     console.log('');
-    
+
     for (const { endpoint, groupResource } of allEndpoints) {
       const fullPath = `${endpoint.method} ${endpoint.path}`;
-      console.log(`[${current}/${total}] Testing: ${fullPath}`);
+      progress(current, total, fullPath);
       
       try {
         // Create a temporary group with just this one endpoint
@@ -207,32 +208,32 @@ export class TestOrchestrator {
         results.push(result);
         
         if (result.passed) {
-          console.log(`  ✅ PASSED (${result.duration}ms)`);
+          pass(`PASSED (${result.duration}ms)`);
         } else {
-          console.log(`  ❌ FAILED`);
-          
+          fail(`FAILED`);
+
           // Log all failed steps with full details
           const failedSteps = result.steps.filter(s => s.error || (s.status && (s.status < 200 || s.status >= 400)));
           if (failedSteps.length > 0) {
-            console.log(`     Failed requests:`);
+            console.log(`     ${c.red}Failed requests:${c.reset}`);
             failedSteps.forEach(step => {
               const statusInfo = step.status ? `[${step.status}]` : '[ERROR]';
               const url = step.url || endpoint.path;
               const method = step.method || step.step;
-              console.log(`       ${method} ${url} ${statusInfo}`);
+              console.log(`       ${c.dim}${method} ${url} ${statusInfo}${c.reset}`);
               if (step.error) {
-                console.log(`       └─ ${step.error}`);
+                console.log(`       ${c.red}└─ ${step.error}${c.reset}`);
               }
             });
           }
-          
+
           if (result.differences && result.differences.length > 0) {
-            console.log(`     Differences: ${result.differences.length}`);
+            console.log(`     ${c.yellow}Differences: ${result.differences.length}${c.reset}`);
           }
         }
       } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error(String(error));
-        console.log(`  ❌ ERROR: ${err.message}`);
+        fail(`ERROR: ${err.message}`);
         results.push({
           resource: endpoint.path,
           steps: [],
@@ -273,8 +274,8 @@ export class TestOrchestrator {
       }
     }
     
-    console.log(`📊 Testing ${allEndpoints.length} endpoints (${this.options.mode === 'readonly' ? 'readonly mode - GET only' : 'full CRUD mode'})`);
-    console.log(`🚀 Running tests in parallel (max ${maxParallel} concurrent)`);
+    heading(`Testing ${allEndpoints.length} endpoints (${this.options.mode === 'readonly' ? 'readonly mode - GET only' : 'full CRUD mode'})`);
+    info(`Running tests in parallel (max ${maxParallel} concurrent)`);
     console.log('');
     
     // Process in batches
@@ -313,9 +314,12 @@ export class TestOrchestrator {
       
       // Log batch completion
       batchResults.forEach((result, idx) => {
-        const symbol = result.passed ? '✅' : '❌';
         const fullPath = `${batch[idx].endpoint.method} ${batch[idx].endpoint.path}`;
-        console.log(`${symbol} ${fullPath} (${result.duration}ms)`);
+        if (result.passed) {
+          pass(`${fullPath} (${result.duration}ms)`);
+        } else {
+          fail(`${fullPath} (${result.duration}ms)`);
+        }
       });
       console.log('');
     }
@@ -426,20 +430,18 @@ export class TestOrchestrator {
       return sum + 1 + (data.resources.length * data.childApiCount); // 1 parent + (resources × children)
     }, 0);
     
-    console.log(`📊 Total hierarchical tests: ${totalTests}`);
+    info(`Total hierarchical tests: ${totalTests}`);
     console.log('');
     
     for (const parentData of hierarchicalData) {
-      console.log('═══════════════════════════════════════');
-      console.log(`  TESTING: ${parentData.description}`);
-      console.log(`  Parent: ${parentData.parentPath}`);
-      console.log(`  Resources: ${parentData.resources.length}`);
-      console.log(`  Child APIs per resource: ${parentData.childApiCount}`);
-      console.log('═══════════════════════════════════════');
+      heading(`TESTING: ${parentData.description}`);
+      info(`Parent: ${parentData.parentPath}`);
+      info(`Resources: ${parentData.resources.length}`);
+      info(`Child APIs per resource: ${parentData.childApiCount}`);
       console.log('');
       
       // Step 1: Test the parent API
-      console.log(`[${testCount}/${totalTests}] Testing parent: GET ${parentData.parentPath}`);
+      progress(testCount, totalTests, `Testing parent: GET ${parentData.parentPath}`);
       testCount++;
       
       try {
@@ -472,16 +474,16 @@ export class TestOrchestrator {
           results.push(result);
           
           if (result.passed) {
-            console.log(`  ✅ PASSED (${result.duration}ms)`);
+            pass(`PASSED (${result.duration}ms)`);
           } else {
-            console.log(`  ❌ FAILED`);
+            fail('FAILED');
           }
         } else {
-          console.log(`  ⚠️  Parent endpoint not found in Swagger spec`);
+          skip('Parent endpoint not found in Swagger spec');
         }
       } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error(String(error));
-        console.log(`  ❌ ERROR: ${err.message}`);
+        fail(`ERROR: ${err.message}`);
       }
 
       console.log('');
@@ -489,7 +491,7 @@ export class TestOrchestrator {
       // Step 2: Loop through all resources and test child APIs
       for (const resource of parentData.resources) {
         const displayName = resource.name ? `${resource.id} (${resource.name})` : resource.id;
-        console.log(`📋 Testing child APIs for resource: ${displayName}`);
+        info(`Testing child APIs for resource: ${displayName}`);
         console.log('');
         
         // Get all child API paths for this resource
@@ -500,7 +502,7 @@ export class TestOrchestrator {
         
         // Test each child API
         for (const childPath of childPaths) {
-          console.log(`[${testCount}/${totalTests}] Testing: GET ${childPath.path}`);
+          progress(testCount, totalTests, `GET ${childPath.path}`);
           testCount++;
           
           try {
@@ -533,13 +535,13 @@ export class TestOrchestrator {
               results.push(result);
               
               if (result.passed) {
-                console.log(`  ✅ PASSED (${result.duration}ms)`);
+                pass(`PASSED (${result.duration}ms)`);
               } else {
-                console.log(`  ❌ FAILED`);
+                fail('FAILED');
               }
             } else {
               // Child endpoint not found - create a simple GET test
-              console.log(`  ℹ️  Endpoint not in spec, testing directly...`);
+              info('Endpoint not in spec, testing directly...');
               
               const endpoint: Endpoint = {
                 method: 'GET',
@@ -572,14 +574,14 @@ export class TestOrchestrator {
               results.push(result);
               
               if (result.passed) {
-                console.log(`  ✅ PASSED (${result.duration}ms)`);
+                pass(`PASSED (${result.duration}ms)`);
               } else {
-                console.log(`  ❌ FAILED`);
+                fail('FAILED');
               }
             }
           } catch (error: unknown) {
             const err = error instanceof Error ? error : new Error(String(error));
-            console.log(`  ❌ ERROR: ${err.message}`);
+            fail(`ERROR: ${err.message}`);
             results.push({
               resource: childPath.path,
               steps: [],
@@ -635,27 +637,16 @@ export class TestOrchestrator {
    * Print summary
    */
   printSummary(result: OrchestratorResult): void {
-    console.log('');
-    console.log('═══════════════════════════════════════');
-    console.log('           TEST SUMMARY');
-    console.log('═══════════════════════════════════════');
-    console.log(`Total:     ${result.total}`);
-    console.log(`Passed:    ${result.passed} ✅`);
-    console.log(`Failed:    ${result.failed} ❌`);
-    console.log(`Skipped:   ${result.skipped} ⊘`);
-    console.log(`Duration:  ${(result.duration / 1000).toFixed(2)}s`);
-    console.log('═══════════════════════════════════════');
-    console.log('');
-    
+    heading('TEST SUMMARY');
+    summaryTable(result.total, result.passed, result.failed, result.skipped, result.duration);
+
     if (result.failed > 0) {
-      console.log('═══════════════════════════════════════');
-      console.log('           FAILED REQUESTS');
-      console.log('═══════════════════════════════════════');
+      heading('FAILED REQUESTS');
       console.log('');
-      
+
       result.results.filter(r => !r.passed).forEach(r => {
-        console.log(`❌ ${r.resource}`);
-        
+        fail(r.resource);
+
         // Log all failed steps with full URL and status code
         const failedSteps = r.steps.filter(s => s.error || (s.status && (s.status < 200 || s.status >= 400)));
         if (failedSteps.length > 0) {
@@ -663,29 +654,26 @@ export class TestOrchestrator {
             const statusInfo = step.status ? `[${step.status}]` : '[ERROR]';
             const url = step.url || r.resource;
             const method = step.method || step.step;
-            console.log(`   ${method.padEnd(7)} ${url} ${statusInfo}`);
+            console.log(`     ${c.dim}${method.padEnd(7)} ${url} ${statusInfo}${c.reset}`);
             if (step.error) {
-              console.log(`            └─ ${step.error}`);
+              console.log(`              ${c.red}└─ ${step.error}${c.reset}`);
             }
           });
         }
-        
+
         // Log differences if any
         if (r.differences && r.differences.length > 0) {
-          console.log(`   Differences: ${r.differences.length}`);
+          console.log(`     ${c.yellow}Differences: ${r.differences.length}${c.reset}`);
           r.differences.slice(0, 2).forEach(d => {
-            console.log(`     • ${d.path}: ${d.type}`);
+            console.log(`       ${c.dim}• ${d.path}: ${d.type}${c.reset}`);
           });
           if (r.differences.length > 2) {
-            console.log(`     ... and ${r.differences.length - 2} more`);
+            console.log(`       ${c.dim}... and ${r.differences.length - 2} more${c.reset}`);
           }
         }
-        
+
         console.log('');
       });
-      
-      console.log('═══════════════════════════════════════');
-      console.log('');
     }
   }
   
@@ -695,18 +683,18 @@ export class TestOrchestrator {
   async runPostTests(): Promise<OrchestratorResult> {
     const startTime = Date.now();
     
-    console.log(`📋 Running POST endpoint tests with fixtures`);
-    
+    info('Running POST endpoint tests with fixtures');
+
     // Parse Swagger to get base URL
     const { baseUrl } = await parseSwaggerUrl(this.options.swaggerUrl);
-    console.log(`🔗 Base URL: ${baseUrl}`);
+    info(`Base URL: ${baseUrl}`);
     
     // Get test cases (optionally filtered by module)
     let testCases = POST_TEST_CASES;
     
     if (this.options.postModule) {
       testCases = getTestCasesByModule(this.options.postModule);
-      console.log(`🔍 Filtering to module: ${this.options.postModule}`);
+      info(`Filtering to module: ${this.options.postModule}`);
     }
     
     // Filter out blacklisted endpoints
@@ -718,13 +706,11 @@ export class TestOrchestrator {
     
     const skipped = testCases.length - filteredCases.length;
     
-    console.log(`✅ Testing ${filteredCases.length} POST endpoints (${skipped} blacklisted)`);
+    pass(`Testing ${filteredCases.length} POST endpoints (${skipped} blacklisted)`);
     console.log('');
     
     // Print test cases that will be run
-    console.log('═══════════════════════════════════════');
-    console.log('        POST ENDPOINTS TO TEST');
-    console.log('═══════════════════════════════════════');
+    heading('POST ENDPOINTS TO TEST');
     
     const byModule: Record<string, PostTestCase[]> = {};
     for (const tc of filteredCases) {
@@ -791,30 +777,16 @@ export class TestOrchestrator {
    * Print POST test summary
    */
   printPostSummary(result: OrchestratorResult): void {
-    console.log('');
-    console.log('═══════════════════════════════════════');
-    console.log('       POST ENDPOINT TEST SUMMARY');
-    console.log('═══════════════════════════════════════');
-    console.log(`Total:     ${result.total}`);
-    console.log(`Passed:    ${result.passed} ✅`);
-    console.log(`Failed:    ${result.failed} ❌`);
-    console.log(`Skipped:   ${result.skipped} ⊘`);
-    console.log(`Duration:  ${(result.duration / 1000).toFixed(2)}s`);
-    
-    const passRate = result.total > 0 ? ((result.passed / result.total) * 100).toFixed(1) : '0.0';
-    console.log(`Pass Rate: ${passRate}%`);
-    console.log('═══════════════════════════════════════');
-    console.log('');
-    
+    heading('POST ENDPOINT TEST SUMMARY');
+    summaryTable(result.total, result.passed, result.failed, result.skipped, result.duration);
+
     if (result.failed > 0) {
-      console.log('═══════════════════════════════════════');
-      console.log('        FAILED POST ENDPOINTS');
-      console.log('═══════════════════════════════════════');
+      heading('FAILED POST ENDPOINTS');
       console.log('');
-      
+
       result.results.filter(r => !r.passed).forEach(r => {
-        console.log(`❌ ${r.resource}`);
-        
+        fail(r.resource);
+
         // Log all failed steps
         const failedSteps = r.steps.filter(s => s.error || (s.status && (s.status < 200 || s.status >= 400)));
         if (failedSteps.length > 0) {
@@ -822,25 +794,22 @@ export class TestOrchestrator {
             const statusInfo = step.status ? `[${step.status}]` : '[ERROR]';
             const url = step.url || r.resource;
             const method = step.method || step.step;
-            console.log(`   ${method.padEnd(7)} ${url} ${statusInfo}`);
+            console.log(`     ${c.dim}${method.padEnd(7)} ${url} ${statusInfo}${c.reset}`);
             if (step.error) {
-              console.log(`            └─ ${step.error}`);
+              console.log(`              ${c.red}└─ ${step.error}${c.reset}`);
             }
           });
         }
-        
+
         // Log differences
         if (r.differences && r.differences.length > 0) {
           r.differences.forEach(d => {
-            console.log(`     • ${d.path}: expected ${d.expected}, got ${d.actual}`);
+            console.log(`       ${c.dim}• ${d.path}: expected ${d.expected}, got ${d.actual}${c.reset}`);
           });
         }
-        
+
         console.log('');
       });
-      
-      console.log('═══════════════════════════════════════');
-      console.log('');
     }
   }
 }

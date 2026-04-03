@@ -10,6 +10,7 @@ import { parseSwaggerUrl } from '../lib/swagger.js';
 import { filterBlacklistedEndpoints } from './blacklist.js';
 import { CoverageAnalyzer } from './coverage-analyzer.js';
 import { AuthConfig, Endpoint } from '../types/index.js';
+import { banner } from './format.js';
 
 const program = new Command();
 
@@ -40,9 +41,7 @@ program
   .option('--skip-cleanup', 'Skip cleanup step in POST fixture tests', false)
   .action(async (options) => {
     try {
-      console.log('🚀 API Contract Guard - Starting Tests');
-      console.log('═══════════════════════════════════════');
-      console.log('');
+      banner();
       
       // Ensure VM is running if auto-start is enabled
       if (options.autoStartVm) {
@@ -133,9 +132,7 @@ program
   .option('--module <name>', 'Only run tests for specific module (e.g., SystemHandler, Model)')
   .action(async (options) => {
     try {
-      console.log('🚀 API Contract Guard - POST Endpoint Tests');
-      console.log('═══════════════════════════════════════');
-      console.log('');
+      banner();
       
       // Ensure VM is running if auto-start is enabled
       if (options.autoStartVm) {
