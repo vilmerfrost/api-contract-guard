@@ -42,7 +42,25 @@ pipelines:
           artifacts:
             - test-results/**
 
+  tags:
+    'v*':
+      - step:
+          name: Build and Publish Docker Image
+          services:
+            - docker
+          caches:
+            - docker
+          script:
+            - export IMAGE_NAME="$DOCKERHUB_USERNAME/api-contract-guard"
+            - export VERSION="${BITBUCKET_TAG#v}"
+            - docker build -t "$IMAGE_NAME:$VERSION" -t "$IMAGE_NAME:latest" .
+            - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            - docker push "$IMAGE_NAME:$VERSION"
+            - docker push "$IMAGE_NAME:latest"
+
 definitions:
   caches:
     node: node_modules
-
+  services:
+    docker:
+      memory: 2048

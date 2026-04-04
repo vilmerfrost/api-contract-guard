@@ -1,0 +1,63 @@
+name: API Contract Guard
+image: your-org/api-contract-guard
+version: 1.0.0
+description: Automated API contract regression testing against OpenAPI/Swagger specs.
+
+variables:
+  - name: SWAGGER_URL
+    description: URL to the Swagger/OpenAPI JSON spec.
+    required: true
+
+  - name: TOKEN_URL
+    description: OAuth2 token endpoint URL.
+    required: true
+
+  - name: API_USERNAME
+    description: OAuth2 username.
+    required: true
+    secured: true
+
+  - name: API_PASSWORD
+    description: OAuth2 password.
+    required: true
+    secured: true
+
+  - name: TEST_MODE
+    description: "Test mode: 'readonly' (GET only) or 'full' (CRUD)."
+    default: "readonly"
+    required: false
+
+  - name: OUTPUT
+    description: JUnit XML output file path.
+    default: "test-results/junit.xml"
+    required: false
+
+  - name: PARALLEL
+    description: Run tests in parallel (true/false).
+    default: "false"
+    required: false
+
+  - name: MAX_PARALLEL
+    description: Maximum number of parallel tests.
+    default: "5"
+    required: false
+
+  - name: AUTO_START_VM
+    description: Automatically start Azure VM if API is down (true/false).
+    default: "false"
+    required: false
+
+  - name: USE_HIERARCHICAL
+    description: Test parent-child API relationships (true/false).
+    default: "false"
+    required: false
+
+  - name: TEST_POSTS
+    description: Run POST endpoint tests with predefined fixtures (true/false).
+    default: "false"
+    required: false
+
+  - name: EXTRA_ARGS
+    description: Additional CLI flags to pass through.
+    default: ""
+    required: false
