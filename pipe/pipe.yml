@@ -1,7 +1,9 @@
 name: API Contract Guard
-image: your-org/api-contract-guard
+image: simplitics/api-contract-guard
 version: 1.0.0
-description: Automated API contract regression testing against OpenAPI/Swagger specs.
+description: >
+  Automated API contract regression testing against OpenAPI/Swagger specs.
+  Runs your CLI tool against a live API to catch contract-breaking changes on pull requests.
 
 variables:
   - name: SWAGGER_URL
